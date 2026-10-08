@@ -1,0 +1,22 @@
+# Abhängigkeiten und Build-Ergebnisse
+node_modules/
+out/
+release/
+dist/
+
+# Logs, Temporäres, Editor
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Lokale Daten und Geheimnisse (nie einchecken)
+.env
+.env.*
+*.db
+*.db-wal
+*.db-shm
+*.apkg
+*.colpkg
