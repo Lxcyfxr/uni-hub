@@ -145,10 +145,31 @@ const MIGRATIONS = [
    UPDATE todos SET category_id = (SELECT id FROM todo_categories WHERE name = todos.course) WHERE course IS NOT NULL;`
 ]
 
+let locked = false
+
+/**
+ * Schließt die Datenbank endgültig (z. B. vor dem Löschen aller Daten). Danach wirft getDb(), damit Zeitgeber
+ * im Hintergrund die Datei nicht sofort neu anlegen.
+ */
+export function closeDb(): void {
+  locked = true
+  if (!db) return
+  try {
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  } catch {
+    /* beim Schließen unerheblich */
+  }
+  db.close()
+  db = undefined as unknown as DatabaseSync
+}
+
 export function getDb(): DatabaseSync {
+  if (locked) throw new Error('Die Datenbank ist geschlossen')
   if (db) return db
   db = new DatabaseSync(join(app.getPath('userData'), 'unihub.db'))
   db.exec('PRAGMA journal_mode = WAL')
+  // Mit WAL ist NORMAL sicher gegen Beschädigung und deutlich schneller beim Schreiben (große Importe)
+  db.exec('PRAGMA synchronous = NORMAL')
   db.exec('PRAGMA foreign_keys = ON')
   const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
   for (let v = current; v < MIGRATIONS.length; v++) {

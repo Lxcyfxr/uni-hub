@@ -165,7 +165,7 @@ function Viewer({ doc, suspended }: { doc: DocumentItem; suspended: boolean }) {
           icon={iconFor(doc.ext)}
           title="Keine Vorschau für dieses Format"
           extra={
-            <Button type="primary" icon={<ExportOutlined />} onClick={() => window.uni.docs.openExternal(doc.id)}>
+            <Button type="primary" icon={<ExportOutlined />} onClick={() => window.uni.docs.openInDefaultApp(doc.id)}>
               Im Standardprogramm öffnen
             </Button>
           }
@@ -368,7 +368,7 @@ export function DocsView() {
                 {selected.title}
               </Typography.Text>
               <Space>
-                <Button icon={<ExportOutlined />} onClick={() => window.uni.docs.openExternal(selected.id).catch((e) => message.error(cleanErr(e)))}>
+                <Button icon={<ExportOutlined />} onClick={() => window.uni.docs.openInDefaultApp(selected.id).catch((e) => message.error(cleanErr(e)))}>
                   Extern öffnen
                 </Button>
                 <Button icon={<FolderOpenOutlined />} onClick={() => window.uni.docs.reveal(selected.id)} />

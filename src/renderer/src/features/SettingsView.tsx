@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { App, Button, Card, Divider, List, Popconfirm, Segmented, Select, Space, Switch, Typography } from 'antd'
-import { BellOutlined, DisconnectOutlined, GithubOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons'
-import type { SessionId } from '@shared/ipc'
+import { App, Button, Card, Divider, List, Modal, Popconfirm, Segmented, Select, Space, Switch, Typography } from 'antd'
+import { BellOutlined, DatabaseOutlined, DeleteOutlined, DisconnectOutlined, FolderOpenOutlined, FileTextOutlined, GithubOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons'
+import type { AppInfo, SessionId } from '@shared/ipc'
+import ownLicense from '../../../../LICENSE?raw'
 import { useThemeMode, type ThemeMode } from './themeMode'
 
 const SERVICES: { id: SessionId; name: string; hint: string }[] = [
@@ -145,10 +146,105 @@ function Background() {
   )
 }
 
+const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+
+function Maintenance() {
+  const { message } = App.useApp()
+  const [info, setInfo] = useState<AppInfo | null>(null)
+  const [busy, setBusy] = useState(false)
+  const load = () => window.uni.app.getInfo().then(setInfo).catch(() => {})
+  useEffect(() => {
+    load()
+  }, [])
+
+  const open = (kind: 'data' | 'logs' | 'backups') =>
+    window.uni.app.openFolder(kind).catch((e) => message.error(cleanErr(e)))
+
+  const backup = async () => {
+    setBusy(true)
+    try {
+      await window.uni.app.backupNow()
+      message.success('Sicherung angelegt')
+      load()
+    } catch (e) {
+      message.error(cleanErr(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title="Daten & Wartung" style={{ marginBottom: 16 }}>
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Typography.Text type="secondary">
+          Version {info?.version ?? '…'}
+          {info && !info.packaged && ' (Entwicklung)'}
+        </Typography.Text>
+        <Typography.Text type="secondary">
+          Aufgaben, Termine, Lernplan, Anki-Karten und Dokumente liegen lokal in einer Datenbank. Uni-Hub sichert sie beim Start einmal täglich
+          und behält die letzten 7 Sicherungen
+          {info?.lastBackup ? ` (zuletzt: ${info.lastBackup.split('-').reverse().join('.')})` : ''}. Zum Wiederherstellen Uni-Hub beenden und die Sicherung als{' '}
+          <code>unihub.db</code> in den Datenordner kopieren.
+        </Typography.Text>
+        <Space wrap>
+          <Button icon={<DatabaseOutlined />} loading={busy} onClick={backup}>
+            Jetzt sichern
+          </Button>
+          <Button icon={<FolderOpenOutlined />} onClick={() => open('backups')}>
+            Sicherungen
+          </Button>
+          <Button icon={<FolderOpenOutlined />} onClick={() => open('data')}>
+            Datenordner
+          </Button>
+          <Button icon={<FolderOpenOutlined />} onClick={() => open('logs')}>
+            Protokoll
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => window.uni.app.wipeData().catch((e) => message.error(cleanErr(e)))}
+          >
+            Alle Daten löschen …
+          </Button>
+        </Space>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          Bei Problemen hilft das Protokoll (<code>main.log</code>) – es enthält keine Passwörter.
+        </Typography.Text>
+      </Space>
+    </Card>
+  )
+}
+
 const AUTHOR = 'Lxcyfxr'
 const GITHUB_URL = 'https://github.com/Lxcyfxr'
 
+const SEPARATOR = `
+
+${'—'.repeat(40)}
+
+`
+
+/** Lizenztexte der gebündelten Pakete – erst beim Öffnen nachgeladen, damit sie den Start nicht bremsen */
+function LicensesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [thirdParty, setThirdParty] = useState<string | null>(null)
+  useEffect(() => {
+    if (open && thirdParty === null) import('../../../../THIRD-PARTY-LICENSES.md?raw').then((m) => setThirdParty(m.default))
+  }, [open, thirdParty])
+  return (
+    <Modal title="Lizenzen" open={open} onCancel={onClose} footer={null} width={760}>
+      <pre style={{ maxHeight: '65vh', overflow: 'auto', fontSize: 12, whiteSpace: 'pre-wrap', margin: 0 }}>
+        {[
+          ownLicense,
+          'Uni-Hub nutzt Open-Source-Software (React, Ant Design, Electron/Chromium u. a.). Electron und Chromium bringen ihre Lizenzen im Installationsordner mit (LICENSE.electron.txt, LICENSES.chromium.html).',
+          thirdParty ?? 'Lade …'
+        ].join(SEPARATOR)}
+      </pre>
+    </Modal>
+  )
+}
+
 function About() {
+  const [licensesOpen, setLicensesOpen] = useState(false)
   return (
     <Card title="Über Uni-Hub" style={{ marginBottom: 16 }}>
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
@@ -158,6 +254,13 @@ function About() {
         <Typography.Link href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
           <GithubOutlined /> github.com/{AUTHOR}
         </Typography.Link>
+        <Space>
+          <Typography.Text type="secondary">Lizenz: MIT</Typography.Text>
+          <Button size="small" icon={<FileTextOutlined />} onClick={() => setLicensesOpen(true)}>
+            Open-Source-Lizenzen
+          </Button>
+        </Space>
+        <LicensesModal open={licensesOpen} onClose={() => setLicensesOpen(false)} />
         <div>
           <Typography.Text strong style={{ fontSize: 12 }}>
             HAFTUNGSAUSSCHLUSS
@@ -237,6 +340,7 @@ export function SettingsView() {
         />
       </Card>
       <div style={{ height: 16 }} />
+      <Maintenance />
       <About />
     </div>
   )

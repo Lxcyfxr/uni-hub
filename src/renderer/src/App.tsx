@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { App as AntApp, Button, Layout, Menu, Result, Tag, theme } from 'antd'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { App as AntApp, Button, Layout, Menu, Result, Spin, Tag, theme } from 'antd'
 import {
   AppstoreOutlined,
   BookOutlined,
@@ -17,14 +17,17 @@ import {
 } from '@ant-design/icons'
 import type { ModuleId } from '@shared/ipc'
 import { WebView } from './features/WebView'
-import { TodoView } from './features/TodoView'
-import { CalendarView } from './features/CalendarView'
-import { DocsView } from './features/DocsView'
-import { AnkiView } from './features/AnkiView'
 import { HomeView } from './features/HomeView'
-import { StudyView } from './features/StudyView'
-import { SettingsView } from './features/SettingsView'
 import { PHASE_LABEL, fmtClock, usePomodoro } from './features/pomodoro'
+
+// Die Startseite ist sofort da; alle anderen Bereiche werden erst beim ersten Öffnen geladen.
+// Das hält den Start schnell, weil schwere Komponenten (Tabellen, Kalender, Editoren) nicht vorab ausgewertet werden.
+const TodoView = lazy(() => import('./features/TodoView').then((m) => ({ default: m.TodoView })))
+const CalendarView = lazy(() => import('./features/CalendarView').then((m) => ({ default: m.CalendarView })))
+const DocsView = lazy(() => import('./features/DocsView').then((m) => ({ default: m.DocsView })))
+const AnkiView = lazy(() => import('./features/AnkiView').then((m) => ({ default: m.AnkiView })))
+const StudyView = lazy(() => import('./features/StudyView').then((m) => ({ default: m.StudyView })))
+const SettingsView = lazy(() => import('./features/SettingsView').then((m) => ({ default: m.SettingsView })))
 
 const NAV: { key: ModuleId; label: string; icon: ReactNode }[] = [
   { key: 'home', label: 'Übersicht', icon: <AppstoreOutlined /> },
@@ -120,6 +123,7 @@ export function App() {
         </div>
       </Layout.Sider>
       <Layout.Content style={{ minWidth: 0, overflow: 'auto' }}>
+        <Suspense fallback={<Spin size="large" style={{ display: 'block', margin: '20vh auto' }} />}>
         {mod === 'todo' ? (
           <TodoView />
         ) : mod === 'home' ? (
@@ -139,6 +143,7 @@ export function App() {
         ) : (
           <Result status="info" title={NAV.find((n) => n.key === mod)!.label} subTitle="Folgt in einer späteren Phase." />
         )}
+        </Suspense>
       </Layout.Content>
     </Layout>
   )

@@ -6,6 +6,7 @@ import { createHash } from 'crypto'
 import { DatabaseSync } from 'node:sqlite'
 import { strToU8, zipSync, type Zippable } from 'fflate'
 import { getDb } from '../db'
+import { writeFileAtomic } from '../fsutil'
 import { FIELD_SEP, mediaRefs, renameMediaRefs, stripHtml } from '@shared/anki-render'
 import { deckSubtree, getNotetype } from './store'
 import { dayStart } from './sched'
@@ -238,7 +239,7 @@ export async function exportDeck(win: BrowserWindow, deckId: number, withProgres
       media: strToU8(JSON.stringify(Object.fromEntries([...exported].map(([name, e]) => [String(e.index), name]))))
     }
     for (const e of exported.values()) zip[String(e.index)] = [new Uint8Array(await readFile(e.path)), { level: 0 }]
-    await writeFile(target.filePath, zipSync(zip))
+    await writeFileAtomic(target.filePath, zipSync(zip))
     progress({ phase: 'Fertig', done: 1, total: 1 })
     return notes.length
   } finally {

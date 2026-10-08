@@ -218,16 +218,25 @@ export function next(deckId: number): AnkiStudyNext {
   const newLeft = Math.max(0, newPerDay() - introduced)
   const counts: AnkiStudyCounts = { new: Math.min(c.nw ?? 0, newLeft), learn: c.lrn ?? 0, due: c.rev ?? 0 }
 
-  const pick = (cond: string, order: string, ...args: number[]) =>
-    db
+  // Nur diese festen Bausteine kommen in die Abfrage; es wird nie Text von außen eingesetzt
+  const PICK = {
+    learningNow: { cond: 'state IN (1,3) AND due <= ?', order: 'due' },
+    reviewToday: { cond: 'state = 2 AND due <= ?', order: 'due' },
+    newCard: { cond: 'state = 0', order: 'position, id' },
+    learningAhead: { cond: 'state IN (1,3) AND due <= ?', order: 'due' }
+  } as const
+  const pick = (kind: keyof typeof PICK, ...args: number[]) => {
+    const { cond, order } = PICK[kind]
+    return db
       .prepare(`SELECT id FROM anki_cards WHERE deck_id IN (${marks}) AND suspended = 0 AND ${cond} ORDER BY ${order} LIMIT 1`)
       .get(...ids, ...args) as unknown as { id: number } | undefined
+  }
 
   const hit =
-    pick('state IN (1,3) AND due <= ?', 'due', now) ??
-    pick('state = 2 AND due <= ?', 'due', endOfDay) ??
-    (newLeft > 0 ? pick('state = 0', 'position, id') : undefined) ??
-    pick('state IN (1,3) AND due <= ?', 'due', now + LEARN_AHEAD_MS)
+    pick('learningNow', now) ??
+    pick('reviewToday', endOfDay) ??
+    (newLeft > 0 ? pick('newCard') : undefined) ??
+    pick('learningAhead', now + LEARN_AHEAD_MS)
 
   return { card: hit ? toStudyCard(loadJoined(hit.id), now) : null, counts }
 }

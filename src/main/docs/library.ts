@@ -3,7 +3,8 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'fs/promis
 import { basename, extname, join, relative, resolve } from 'path'
 import { getDb } from '../db'
 import { showFile } from '../views'
-import { IMAGE_EXTS, NATIVE_VIEW_EXTS, docxHtml, extOf, extractText, pptxSlides } from './extract'
+import { IMAGE_EXTS, MAX_EXTRACT_BYTES, NATIVE_VIEW_EXTS, docxHtml, extOf, extractText, pptxSlides } from './extract'
+import { optStr, str, strList } from '@shared/validate'
 import type { DocPreview, DocSearchHit, DocUpdate, DocumentItem } from '@shared/ipc'
 import type { Bounds } from '@shared/ipc'
 
@@ -73,7 +74,7 @@ async function index(path: string, folder: string | null): Promise<number> {
   const st = await stat(path)
   const filename = basename(path)
   const ext = extOf(filename)
-  const content = await extractText(path, ext)
+  const content = st.size > MAX_EXTRACT_BYTES ? '' : await extractText(path, ext)
   const existing = db.prepare('SELECT * FROM documents WHERE path = ?').get(path) as unknown as Row | undefined
 
   if (existing) {
@@ -172,7 +173,13 @@ export async function importDialog(win: BrowserWindow, folder: string | null): P
   return importPaths(pick.filePaths, folder)
 }
 
-export function update(id: number, patch: DocUpdate): void {
+export function update(id: number, raw: DocUpdate): void {
+  // Eingaben der Oberfläche prüfen (Typ und Länge), bevor sie gespeichert werden
+  const patch: DocUpdate = {
+    title: str(raw?.title, 300, 'Titel'),
+    folder: optStr(raw?.folder, 200, 'Ordner'),
+    tags: strList(raw?.tags ?? [], 50, 60)
+  }
   const title = patch.title.trim()
   if (!title) throw new Error('Titel darf nicht leer sein')
   const folder = patch.folder?.trim() || null
@@ -209,6 +216,8 @@ export function search(query: string): DocSearchHit[] {
 export async function preview(id: number): Promise<DocPreview> {
   const r = row(id)
   if (NATIVE_VIEW_EXTS.has(r.ext)) return { kind: 'native' }
+  // Sehr große Office-Dateien nicht im Speicher aufbauen, sondern im Standardprogramm öffnen lassen
+  if ((r.ext === 'docx' || r.ext === 'pptx') && r.size > MAX_EXTRACT_BYTES) return { kind: 'external' }
   if (r.ext === 'docx') return { kind: 'html', html: await docxHtml(r.path) }
   if (r.ext === 'pptx') return { kind: 'slides', slides: pptxSlides(await readFile(r.path)) }
   return { kind: 'external' }
@@ -220,7 +229,7 @@ export function showView(win: BrowserWindow, id: number, bounds: Bounds): void {
   showFile(win, r.path, bounds)
 }
 
-export async function openExternal(id: number): Promise<void> {
+export async function openInDefaultApp(id: number): Promise<void> {
   const err = await shell.openPath(row(id).path)
   if (err) throw new Error(err)
 }

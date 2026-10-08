@@ -1,32 +1,17 @@
-import { BrowserWindow, WebContentsView, session, shell } from 'electron'
+import { BrowserWindow, WebContentsView, session } from 'electron'
+import { guardServiceView, openExternalSafe } from './links'
+import { SECURE_WEB_PREFERENCES } from './security'
 import { pathToFileURL } from 'url'
 import { WEB_MODULES, type Bounds, type WebModuleId } from '@shared/ipc'
 
 const views = new Map<WebModuleId, WebContentsView>()
 let active: WebContentsView | null = null
 
-const LOGIN_HOSTS = ['login.microsoftonline.com', 'charite.de', 'amboss.com', 'accounts.google.com', 'appleid.apple.com']
-
-/** Nur https und genau diese Domains (inkl. Subdomains) – nicht jede Adresse, die den Namen irgendwo enthält. */
-function isLoginHost(url: string): boolean {
-  try {
-    const u = new URL(url)
-    return u.protocol === 'https:' && LOGIN_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith('.' + h))
-  } catch {
-    return false
-  }
-}
-
 function create(win: BrowserWindow, id: WebModuleId): WebContentsView {
-  const view = new WebContentsView({
-    webPreferences: { partition: WEB_MODULES[id].partition, sandbox: true, contextIsolation: true }
-  })
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    // Login-Popups (Microsoft/Shibboleth, AMBOSS inkl. Google/Apple-Anmeldung) in-app erlauben, alles andere extern
-    if (isLoginHost(url)) return { action: 'allow' }
-    shell.openExternal(url)
-    return { action: 'deny' }
-  })
+  const view = new WebContentsView({ webPreferences: { ...SECURE_WEB_PREFERENCES, partition: WEB_MODULES[id].partition } })
+  // Login-Popups (Microsoft/Shibboleth, AMBOSS inkl. Google/Apple-Anmeldung) bleiben in der App, alles andere
+  // geht nur über https in den Standardbrowser; fremde Schemata werden nie geladen
+  guardServiceView(view.webContents)
   view.webContents.loadURL(WEB_MODULES[id].url)
   views.set(id, view)
   win.contentView.addChildView(view)
@@ -62,14 +47,16 @@ let docUrl = ''
 /** Zeigt eine lokale Datei (PDF, Bild, Text) mit dem eingebauten Chromium-Viewer. */
 export function showFile(win: BrowserWindow, filePath: string, bounds: Bounds): void {
   if (!docView) {
-    docView = new WebContentsView({ webPreferences: { partition: 'doc-viewer', sandbox: true, contextIsolation: true } })
+    docView = new WebContentsView({ webPreferences: { ...SECURE_WEB_PREFERENCES, partition: 'doc-viewer' } })
     const wc = docView.webContents
     // Der Viewer darf nie wegnavigieren (z. B. durch Drag&Drop oder Links im Dokument)
-    wc.on('will-navigate', (e, url) => {
-      if (url !== docUrl) e.preventDefault()
-    })
+    const stay = (details: { url: string; preventDefault(): void }) => {
+      if (details.url !== docUrl) details.preventDefault()
+    }
+    wc.on('will-navigate', stay)
+    wc.on('will-redirect', stay)
     wc.setWindowOpenHandler(({ url }) => {
-      if (/^https?:/.test(url)) shell.openExternal(url)
+      openExternalSafe(url)
       return { action: 'deny' }
     })
     win.contentView.addChildView(docView)
@@ -83,6 +70,13 @@ export function showFile(win: BrowserWindow, filePath: string, bounds: Bounds): 
   docView.setBounds(bounds)
   docView.setVisible(true)
   active = docView
+}
+
+/** Lässt die Dokumentansicht ihre Datei loslassen (Windows sperrt geöffnete Dateien gegen das Löschen). */
+export function releaseDocView(): void {
+  if (!docView) return
+  docUrl = ''
+  void docView.webContents.loadURL('about:blank')
 }
 
 export function hideWeb(): void {

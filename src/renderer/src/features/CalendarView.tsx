@@ -248,7 +248,7 @@ function SourceManager({ sources, onChange }: { sources: CalendarSource[]; onCha
             <Input placeholder="https://… oder webcal://…" />
           </Form.Item>
           <Form.Item label="Farbe">
-            <ColorPicker value={color} onChange={(c) => setColor(c.toHexString())} />
+            <ColorPicker disabledAlpha value={color} onChange={(c) => setColor(c.toHexString())} />
           </Form.Item>
         </Form>
         {error && <Alert type="error" showIcon message={error} />}

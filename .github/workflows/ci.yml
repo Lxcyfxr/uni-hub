@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Minimale Rechte: der Ablauf braucht nur Lesezugriff auf den Code und hat keine Geheimnisse
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: windows-latest
+    env:
+      # Für Typprüfung, Tests und Build wird das Electron-Programm nicht gebraucht
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run budget
+      # Nur bekannte Schwachstellen der Stufe "hoch"/"kritisch" lassen den Ablauf scheitern
+      - run: npm audit --audit-level=high

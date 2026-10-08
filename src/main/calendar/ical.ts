@@ -1,9 +1,11 @@
 import { BrowserWindow, dialog } from 'electron'
 import { randomUUID } from 'crypto'
-import { readFile, writeFile } from 'fs/promises'
+import { readFile, stat } from 'fs/promises'
 import { basename, extname } from 'path'
 import * as ical from 'node-ical'
 import { getDb } from '../db'
+import { writeFileAtomic } from '../fsutil'
+import { dayOrIso, str } from '@shared/validate'
 import type { CalendarEvent, CalendarEventInput, CalendarSource } from '@shared/ipc'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -105,18 +107,54 @@ export function listSources(): CalendarSource[] {
   return (getDb().prepare('SELECT * FROM calendar_sources ORDER BY id').all() as unknown as Row[]).map(toSource)
 }
 
+/** Größte akzeptierte iCal-Datei bzw. -Antwort (Schutz vor Speicherüberlauf durch riesige Feeds) */
+const MAX_ICS_BYTES = 20_000_000
+const MAX_REDIRECTS = 5
+const HTTPS_ONLY = 'Aus Sicherheitsgründen werden nur HTTPS-Adressen unterstützt (https:// oder webcal://)'
+
 function normalizeCalUrl(input: string): string {
   const u = input.trim().replace(/^webcal:\/\//i, 'https://')
-  if (!/^https?:\/\//i.test(u)) throw new Error('Bitte eine gültige iCal-Adresse (https:// oder webcal://) eingeben')
+  if (!/^https:\/\//i.test(u)) throw new Error(HTTPS_ONLY)
   return u
 }
 
+async function readLimited(res: Response, max: number): Promise<string> {
+  const declared = Number(res.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > max) throw new Error('Der Kalender ist zu groß (über 20 MB)')
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('Leere Antwort des Kalender-Servers')
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.length
+    if (total > max) {
+      await reader.cancel()
+      throw new Error('Der Kalender ist zu groß (über 20 MB)')
+    }
+    chunks.push(value)
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 async function fetchIcs(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { Accept: 'text/calendar, */*' }, signal: AbortSignal.timeout(30_000) })
-  if (!res.ok) throw new Error(`Kalender-Server antwortete mit HTTP ${res.status}`)
-  const body = await res.text()
-  if (!body.includes('BEGIN:VCALENDAR')) throw new Error('Die Adresse liefert keinen iCal-Kalender')
-  return body
+  // Weiterleitungen selbst verfolgen, damit kein Zwischenschritt auf unverschlüsseltes http abbiegen kann
+  let target = url
+  for (let hop = 0; ; hop++) {
+    if (!/^https:\/\//i.test(target)) throw new Error(HTTPS_ONLY)
+    const res = await fetch(target, { headers: { Accept: 'text/calendar, */*' }, redirect: 'manual', signal: AbortSignal.timeout(30_000) })
+    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+      if (hop >= MAX_REDIRECTS) throw new Error('Zu viele Weiterleitungen')
+      target = new URL(res.headers.get('location')!, target).href
+      await res.body?.cancel()
+      continue
+    }
+    if (!res.ok) throw new Error(`Kalender-Server antwortete mit HTTP ${res.status}`)
+    const body = await readLimited(res, MAX_ICS_BYTES)
+    if (!body.includes('BEGIN:VCALENDAR')) throw new Error('Die Adresse liefert keinen iCal-Kalender')
+    return body
+  }
 }
 
 export async function addUrlSource(name: string, urlInput: string, color: string): Promise<void> {
@@ -135,6 +173,7 @@ export async function importFile(win: BrowserWindow): Promise<number | null> {
   })
   if (pick.canceled || !pick.filePaths[0]) return null
   const file = pick.filePaths[0]
+  if ((await stat(file)).size > MAX_ICS_BYTES) throw new Error('Die Datei ist zu groß (über 20 MB)')
   const events = parseIcs(await readFile(file, 'utf8'))
   const name = basename(file, extname(file))
   const res = getDb().prepare("INSERT INTO calendar_sources (name,kind,color) VALUES (?, 'file', '#52c41a')").run(name)
@@ -155,7 +194,17 @@ function localSourceId(): number {
   return Number(res.lastInsertRowid)
 }
 
-export function saveEvent(input: CalendarEventInput): void {
+export function saveEvent(raw: CalendarEventInput): void {
+  // Eingaben der Oberfläche prüfen: Längen und Datumsformat, bevor etwas in die Datenbank geht
+  const input = {
+    id: raw.id,
+    allDay: raw.allDay === true,
+    start: dayOrIso(raw.start, 'Beginn'),
+    end: dayOrIso(raw.end, 'Ende'),
+    title: str(raw.title, 300, 'Titel'),
+    location: raw.location == null ? null : str(raw.location, 500, 'Ort'),
+    description: raw.description == null ? null : str(raw.description, 10_000, 'Notizen')
+  }
   const title = input.title.trim()
   if (!title) throw new Error('Bitte einen Titel eingeben')
   if (input.end < input.start) throw new Error('Das Ende liegt vor dem Beginn')
@@ -220,7 +269,7 @@ export async function exportIcs(win: BrowserWindow): Promise<number | null> {
     lines.push('END:VEVENT')
   }
   lines.push('END:VCALENDAR')
-  await writeFile(target.filePath, lines.join('\r\n') + '\r\n', 'utf8')
+  await writeFileAtomic(target.filePath, lines.join('\r\n') + '\r\n')
   return rows.length
 }
 

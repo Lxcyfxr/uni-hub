@@ -40,7 +40,7 @@ const api: UniApi = {
     preview: (id) => ipcRenderer.invoke('docs:preview', id),
     showView: (id, bounds) => ipcRenderer.invoke('docs:showView', id, bounds),
     hideView: () => ipcRenderer.invoke('docs:hideView'),
-    openExternal: (id) => ipcRenderer.invoke('docs:openExternal', id),
+    openInDefaultApp: (id) => ipcRenderer.invoke('docs:openInDefaultApp', id),
     reveal: (id) => ipcRenderer.invoke('docs:reveal', id),
     onImported: (cb) => {
       const handler = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
@@ -74,6 +74,10 @@ const api: UniApi = {
       return () => ipcRenderer.removeListener('app:navigate', handler)
     },
     testNotification: () => ipcRenderer.invoke('app:testNotification'),
+    getInfo: () => ipcRenderer.invoke('app:getInfo'),
+    openFolder: (kind) => ipcRenderer.invoke('app:openFolder', kind),
+    backupNow: () => ipcRenderer.invoke('app:backupNow'),
+    wipeData: () => ipcRenderer.invoke('app:wipeData'),
     getAutostart: () => ipcRenderer.invoke('app:getAutostart'),
     setAutostart: (enabled) => ipcRenderer.invoke('app:setAutostart', enabled),
     notify: (opts) => ipcRenderer.invoke('app:notify', opts)

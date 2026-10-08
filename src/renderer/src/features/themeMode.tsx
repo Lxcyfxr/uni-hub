@@ -9,7 +9,8 @@ const Ctx = createContext<{ mode: ThemeMode; setMode: (m: ThemeMode) => void }>(
 export const useThemeMode = () => useContext(Ctx)
 
 export function ThemeModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('dark')
+  // Der Hauptprozess stellt das gespeicherte Design vor dem Start ein; so beginnt die Oberfläche gleich richtig
+  const [mode, setModeState] = useState<ThemeMode>(() => (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'))
 
   useEffect(() => {
     window.uni.ui.get('ui.theme').then((v) => {

@@ -254,6 +254,16 @@ export interface AnkiDownloadEvent {
   error?: string
 }
 
+export interface AppInfo {
+  version: string
+  packaged: boolean
+  dataDir: string
+  logsDir: string
+  backupsDir: string
+  /** Datum der letzten Sicherung ('YYYY-MM-DD') */
+  lastBackup: string | null
+}
+
 export interface UniApi {
   web: {
     show(id: WebModuleId, bounds: Bounds): Promise<void>
@@ -295,7 +305,8 @@ export interface UniApi {
     preview(id: number): Promise<DocPreview>
     showView(id: number, bounds: Bounds): Promise<void>
     hideView(): Promise<void>
-    openExternal(id: number): Promise<void>
+    /** Öffnet die gespeicherte Datei im Standardprogramm von Windows (keine Webadresse) */
+    openInDefaultApp(id: number): Promise<void>
     reveal(id: number): Promise<void>
     /** Wird ausgelöst, wenn ein Download aus Exchange/lehre automatisch im Doc-Hub gelandet ist */
     onImported(cb: (p: { filename: string; folder: string }) => void): () => void
@@ -326,6 +337,12 @@ export interface UniApi {
     onNavigate(cb: (module: ModuleId) => void): () => void
     /** Sendet eine Test-Benachrichtigung (prüft, ob Windows sie anzeigt) */
     testNotification(): Promise<void>
+    getInfo(): Promise<AppInfo>
+    openFolder(kind: 'data' | 'logs' | 'backups'): Promise<void>
+    /** Legt sofort eine Sicherung der Datenbank an und liefert den Dateipfad */
+    backupNow(): Promise<string>
+    /** Fragt nach und löscht dann alle lokalen Daten (Datenbank, Dokumente, Anki, Sicherungen, Anmeldungen) und startet neu; false = abgebrochen */
+    wipeData(): Promise<boolean>
     getAutostart(): Promise<{ supported: boolean; enabled: boolean; blocked: boolean }>
     setAutostart(enabled: boolean): Promise<void>
     /** Zeigt eine Windows-Benachrichtigung; ein Klick öffnet optional ein Modul (z. B. 'study') */

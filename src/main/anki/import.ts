@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, type Session } from 'electron'
 import { mkdtempSync } from 'fs'
-import { mkdir, readFile, rm, writeFile } from 'fs/promises'
+import { mkdir, readFile, rm, stat, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -55,7 +55,30 @@ const utf8 = (b: Uint8Array) => Buffer.from(b).toString('utf8')
 /* ---------- Zip-Zugriff ---------- */
 
 const isZstd = (b: Uint8Array) => b.length >= 4 && b[0] === 0x28 && b[1] === 0xb5 && b[2] === 0x2f && b[3] === 0xfd
-const maybeZstd = (b: Buffer): Buffer => (isZstd(b) ? zstdDecompressSync(b) : b)
+
+/**
+ * Grenzen gegen manipulierte Pakete ("Zip-Bomben"): wenige KB können sich zu Gigabytes entpacken. Geprüft wird vor
+ * dem Lesen (angegebene Größe; yauzl verwirft Einträge, deren echte Größe davon abweicht) und beim Entpacken von zstd.
+ */
+export const LIMITS = {
+  entries: 1_000_000,
+  collection: 3_000_000_000,
+  mediaList: 64_000_000,
+  mediaFile: 300_000_000,
+  mediaTotal: 20_000_000_000
+}
+
+class LimitError extends Error {}
+
+const maybeZstd = (b: Buffer, maxOutput: number): Buffer => {
+  if (!isZstd(b)) return b
+  try {
+    return zstdDecompressSync(b, { maxOutputLength: maxOutput })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') throw new LimitError('Das Paket enthält zu große Daten und wurde nicht importiert')
+    throw e
+  }
+}
 
 function openZip(path: string): Promise<yauzl.ZipFile> {
   return new Promise((resolve, reject) => {
@@ -67,6 +90,10 @@ function listEntries(zip: yauzl.ZipFile): Promise<Map<string, yauzl.Entry>> {
   return new Promise((resolve, reject) => {
     const map = new Map<string, yauzl.Entry>()
     zip.on('entry', (e: yauzl.Entry) => {
+      if (map.size >= LIMITS.entries) {
+        zip.close()
+        return reject(new LimitError('Das Paket enthält zu viele Dateien'))
+      }
       map.set(e.fileName, e)
       zip.readEntry()
     })
@@ -76,12 +103,21 @@ function listEntries(zip: yauzl.ZipFile): Promise<Map<string, yauzl.Entry>> {
   })
 }
 
-function readEntry(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<Buffer> {
+function readEntry(zip: yauzl.ZipFile, entry: yauzl.Entry, maxBytes: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
+    if (entry.uncompressedSize > maxBytes) return reject(new LimitError('Das Paket enthält zu große Dateien und wurde nicht importiert'))
     zip.openReadStream(entry, (err, stream) => {
       if (err || !stream) return reject(err ?? new Error('Eintrag nicht lesbar'))
       const chunks: Buffer[] = []
-      stream.on('data', (c: Buffer) => chunks.push(c))
+      let size = 0
+      stream.on('data', (c: Buffer) => {
+        size += c.length
+        if (size > maxBytes) {
+          stream.destroy()
+          return reject(new LimitError('Das Paket enthält zu große Dateien und wurde nicht importiert'))
+        }
+        chunks.push(c)
+      })
       stream.on('end', () => resolve(Buffer.concat(chunks)))
       stream.on('error', reject)
     })
@@ -218,7 +254,7 @@ function readSource(dbPath: string): Source {
 
 /** Medienliste: altes Format = JSON-Objekt, neues Format = (zstd-komprimiertes) Protobuf. */
 function parseMediaList(raw: Buffer): Map<string, string> {
-  const buf = maybeZstd(raw)
+  const buf = maybeZstd(raw, LIMITS.mediaList)
   const map = new Map<string, string>()
   if (buf[0] === 0x7b /* { */) {
     for (const [idx, name] of Object.entries(JSON.parse(buf.toString('utf8')) as Record<string, string>)) map.set(idx, name)
@@ -274,7 +310,7 @@ export async function importApkg(file: string, keepProgress: boolean, progress: 
     const entries = await listEntries(zip)
     const collectionName = ['collection.anki21b', 'collection.anki21', 'collection.anki2'].find((n) => entries.has(n))
     if (!collectionName) throw new Error('Keine Anki-Sammlung in der Datei gefunden – ist das eine .apkg-Datei?')
-    await writeFile(tmp, patchUnicase(maybeZstd(await readEntry(zip, entries.get(collectionName)!))))
+    await writeFile(tmp, patchUnicase(maybeZstd(await readEntry(zip, entries.get(collectionName)!, LIMITS.collection), LIMITS.collection)))
     const src = readSource(tmp)
 
     const db = getDb()
@@ -315,54 +351,78 @@ export async function importApkg(file: string, keepProgress: boolean, progress: 
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
     const total = src.notes.size
-    let done = 0
     const now = Date.now()
-    db.exec('BEGIN')
+    const noteList = [...src.notes]
+    /** Notizen pro Transaktion; dazwischen kann der Hauptprozess Fenster, Timer und Erinnerungen bedienen */
+    const BATCH = 1000
     try {
-      for (const [nid, n] of src.notes) {
-        if (++done % 500 === 0) progress({ phase: 'Notizen importieren', done, total })
-        const localNt = ntMap.get(n.mid)
-        const info = ntInfo.get(n.mid)
-        const cards = cardsByNote.get(nid)
-        if (localNt === undefined || !info || !cards) continue
-        if (findGuid.get(n.guid, localNt)) {
-          result.skipped++
-          continue
+      for (let start = 0; start < noteList.length; start += BATCH) {
+        db.exec('BEGIN')
+        try {
+          for (const [nid, n] of noteList.slice(start, start + BATCH)) {
+            const localNt = ntMap.get(n.mid)
+            const info = ntInfo.get(n.mid)
+            const cards = cardsByNote.get(nid)
+            if (localNt === undefined || !info || !cards) continue
+            if (findGuid.get(n.guid, localNt)) {
+              result.skipped++
+              continue
+            }
+            const values = n.flds.split(FIELD_SEP)
+            while (values.length < info.fields.length) values.push('')
+            const flds = values.slice(0, info.fields.length).join(FIELD_SEP)
+            const tags = n.tags.trim() ? ` ${n.tags.trim()} ` : ''
+            const noteId = Number(insNote.run(localNt, n.guid, flds, plainTitle(values[0] ?? ''), tags, ns, now, now).lastInsertRowid)
+            result.notes++
+            for (const c of cards) {
+              const s = cardState(c, src.crt, keepProgress)
+              insCard.run(noteId, deckMap.get(effDeck(c))!, c.ord, s.position, s.state, s.due, s.stability, s.difficulty, s.scheduledDays, s.reps, s.lapses, s.lastReview, s.suspended)
+              result.cards++
+            }
+          }
+          db.exec('COMMIT')
+        } catch (e) {
+          db.exec('ROLLBACK')
+          throw e
         }
-        const values = n.flds.split(FIELD_SEP)
-        while (values.length < info.fields.length) values.push('')
-        const flds = values.slice(0, info.fields.length).join(FIELD_SEP)
-        const tags = n.tags.trim() ? ` ${n.tags.trim()} ` : ''
-        const noteId = Number(insNote.run(localNt, n.guid, flds, plainTitle(values[0] ?? ''), tags, ns, now, now).lastInsertRowid)
-        result.notes++
-        for (const c of cards) {
-          const s = cardState(c, src.crt, keepProgress)
-          insCard.run(noteId, deckMap.get(effDeck(c))!, c.ord, s.position, s.state, s.due, s.stability, s.difficulty, s.scheduledDays, s.reps, s.lapses, s.lastReview, s.suspended)
-          result.cards++
-        }
+        progress({ phase: 'Notizen importieren', done: Math.min(start + BATCH, total), total })
+        await new Promise<void>((resolve) => setImmediate(resolve))
       }
-      db.exec('COMMIT')
     } catch (e) {
-      db.exec('ROLLBACK')
+      // Kein halb importierter Stapel: alles aus diesem Import (die Karten gehen per Verknüpfung mit) wieder entfernen
+      db.prepare('DELETE FROM anki_notes WHERE media_ns = ?').run(ns)
       throw e
     }
 
     // Medien
     if (result.notes > 0 && entries.has('media')) {
-      const list = parseMediaList(await readEntry(zip, entries.get('media')!))
+      const list = parseMediaList(await readEntry(zip, entries.get('media')!, LIMITS.mediaList))
       const dir = join(mediaRoot(), ns)
       await mkdir(dir, { recursive: true })
       let i = 0
-      for (const [idx, name] of list) {
-        if (++i % 100 === 0) progress({ phase: 'Medien kopieren', done: i, total: list.size })
-        const entry = entries.get(idx)
-        if (!entry) continue
-        try {
-          await writeFile(join(dir, safeFileName(name)), maybeZstd(await readEntry(zip, entry)))
-          result.media++
-        } catch (e) {
-          console.warn('Mediendatei übersprungen:', name, e)
+      let written = 0
+      try {
+        for (const [idx, name] of list) {
+          if (++i % 100 === 0) progress({ phase: 'Medien kopieren', done: i, total: list.size })
+          const entry = entries.get(idx)
+          if (!entry) continue
+          try {
+            const data = maybeZstd(await readEntry(zip, entry, LIMITS.mediaFile), LIMITS.mediaFile)
+            written += data.length
+            if (written > LIMITS.mediaTotal) throw new LimitError('Die Medien des Pakets sind zu groß (über 20 GB) und wurden nicht importiert')
+            await writeFile(join(dir, safeFileName(name)), data)
+            result.media++
+          } catch (e) {
+            // Eine einzelne zu große oder defekte Datei überspringen, aber bei der Gesamtgrenze abbrechen
+            if (e instanceof LimitError && written > LIMITS.mediaTotal) throw e
+            console.warn('Mediendatei übersprungen:', name, e instanceof LimitError ? '(zu groß)' : e)
+          }
         }
+      } catch (e) {
+        // Kein halb importierter Stapel
+        db.prepare('DELETE FROM anki_notes WHERE media_ns = ?').run(ns)
+        await rm(dir, { recursive: true, force: true })
+        throw e
       }
     }
     progress({ phase: 'Fertig', done: 1, total: 1 })
@@ -483,5 +543,6 @@ export async function importTextDialog(win: BrowserWindow, deckId: number, hasHe
     filters: [{ name: 'Text/CSV', extensions: ['txt', 'csv', 'tsv'] }]
   })
   if (pick.canceled || !pick.filePaths[0]) return null
+  if ((await stat(pick.filePaths[0])).size > 20_000_000) throw new Error('Die Datei ist zu groß (über 20 MB)')
   return importDelimited(await readFile(pick.filePaths[0], 'utf8'), deckId, hasHeader)
 }
