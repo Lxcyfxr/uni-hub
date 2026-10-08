@@ -1,0 +1,75 @@
+{
+  "name": "uni-hub",
+  "version": "0.1.0",
+  "description": "Studium-Hub: Outlook, Kalender, Anki, Docs, Planer",
+  "main": "./out/main/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dist": "electron-vite build && electron-builder --win nsis",
+    "pack": "electron-vite build && electron-builder --win dir"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "mammoth": "^1.13.0",
+    "node-ical": "^0.27.3",
+    "pdfjs-dist": "^6.4.299",
+    "ts-fsrs": "^5.4.2",
+    "yauzl": "^3.4.0"
+  },
+  "devDependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/yauzl": "^3.4.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "antd": "^6.6.5",
+    "dayjs": "^1.11.23",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "zustand": "^5.0.15"
+  },
+  "author": "Lxcyfxr",
+  "build": {
+    "appId": "de.unihub.app",
+    "productName": "Uni-Hub",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Uni-Hub",
+      "deleteAppDataOnUninstall": false
+    },
+    "electronDist": "node_modules/electron/dist"
+  }
+}
