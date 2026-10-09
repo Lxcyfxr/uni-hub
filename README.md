@@ -4,6 +4,34 @@ Windows-Desktop-App zur Studienorganisation: Übersicht, To-Do (Board mit Katego
 
 Technik: Electron · React · TypeScript · Ant Design · SQLite (`node:sqlite`) · electron-vite · electron-builder.
 
+## Dokumentation
+
+| Dokument | Für wen | Inhalt |
+| --- | --- | --- |
+| [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md) | Anwender | Installation, alle Bereiche Schritt für Schritt, Sicherung, Fehlerbehebung |
+| [Entwicklerdokumentation](docs/ENTWICKLUNG.md) | Entwickler | Architektur, Ordnerstruktur, Schnittstellen und Migrationen erweitern, Tests, Release |
+| [PRIVACY.md](PRIVACY.md) | alle | Welche Daten wo liegen, wann etwas das Gerät verlässt, Löschen und Export |
+| [SECURITY-CHECKLIST.md](SECURITY-CHECKLIST.md) | Entwickler | Sicherheitsvorgaben mit Status und Nachweisen |
+| [OPTIMIZATION.md](OPTIMIZATION.md) | Entwickler | Optimierungen mit Messwerten vorher/nachher |
+| [CHANGELOG.md](CHANGELOG.md) | alle | Änderungen je Version |
+
+## Funktionen
+
+- **Übersicht:** Tagesplan, Fristen, Lernfortschritt und Anki-Stand auf einen Blick
+- **To-Do:** Board (Offen / In Bearbeitung / Erledigt) mit Kategorien und Drag&Drop
+- **Lernplaner:** Fächer, Themen mit Fortschrittsbalken, Prüfungs-Countdown, Pomodoro-Timer
+- **Kalender:** iCal-Abos, `.ics`-Import/-Export, eigene Termine, Terminerinnerungen
+- **Doc-Hub:** PDF, DOCX, PPTX, Bilder, Text mit Ordnern, Tags und Volltextsuche
+- **Anki:** Import/Export von `.apkg`, eigene Karten (auch Lückentext), Lernen mit FSRS
+- **Web-Dienste:** Exchange, lehre.charite, AMBOSS, MOSES mit dauerhafter Anmeldung
+- Infobereich, Autostart, Hell/Dunkel, tägliche Datenbank-Sicherung
+
+## Schnellstart
+
+Anwender: Installer `Uni-Hub-Setup-<Version>.exe` ausführen (siehe [Benutzerhandbuch](docs/BENUTZERHANDBUCH.md#1-erste-schritte)).
+
+Entwickler: Node.js 22 oder neuer, dann `npm install` und `npm run dev` (Details unten und in der [Entwicklerdokumentation](docs/ENTWICKLUNG.md)).
+
 ## Entwickeln
 
 ```bash

@@ -108,5 +108,13 @@
       "onlyLoadAppFromAsar": true,
       "enableCookieEncryption": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lxcyfxr/uni-hub.git"
+  },
+  "homepage": "https://github.com/Lxcyfxr/uni-hub#readme",
+  "bugs": {
+    "url": "https://github.com/Lxcyfxr/uni-hub/issues"
   }
 }
