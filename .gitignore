@@ -1,0 +1,44 @@
+# Abhängigkeiten
+node_modules/
+
+# Build-Ergebnisse und Installer
+out/
+out-test/
+release/
+dist/
+*.tsbuildinfo
+
+# Ergebnisse von Tests und Selbsttest
+selftest-result.json
+coverage/
+
+# Protokolle
+*.log
+npm-debug.log*
+
+# Geheimnisse und Zertifikate (nie einchecken – auch nicht für die spätere Code-Signierung)
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+
+# Lokale Nutzerdaten, falls eine Datenbank oder Sicherung ins Projekt kopiert wird
+unihub.db*
+*.db-wal
+*.db-shm
+
+# Editor und Betriebssystem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Lokale Einstellungen von Claude Code
+.claude/settings.local.json

@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Abhängigkeiten wöchentlich prüfen (Sicherheits- und Versionsupdates als Pull Requests)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Die im CI-Ablauf verwendeten Actions aktuell halten
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
