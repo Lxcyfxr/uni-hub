@@ -91,6 +91,8 @@ export interface DocumentItem {
   addedAt: string
   /** false = kein durchsuchbarer Text (z. B. gescanntes PDF, Bild) */
   hasText: boolean
+  /** true = zum Dokument gibt es eine Notiz */
+  hasNotes: boolean
 }
 
 export interface DocUpdate {
@@ -254,6 +256,19 @@ export interface AnkiDownloadEvent {
   error?: string
 }
 
+export type SearchKind = 'todo' | 'event' | 'subject' | 'topic' | 'card' | 'doc'
+
+export interface SearchResult {
+  kind: SearchKind
+  id: number
+  title: string
+  subtitle: string | null
+  /** Bereich, der beim Anklicken geöffnet wird */
+  module: ModuleId
+  /** Nur Termine: Tag 'YYYY-MM-DD' */
+  date?: string
+}
+
 export interface AppInfo {
   version: string
   packaged: boolean
@@ -300,6 +315,8 @@ export interface UniApi {
     /** Absoluter Pfad einer per Drag&Drop abgelegten Datei */
     pathForFile(file: File): string
     update(id: number, patch: DocUpdate): Promise<void>
+    getNotes(id: number): Promise<string>
+    setNotes(id: number, text: string): Promise<void>
     remove(id: number): Promise<void>
     search(query: string): Promise<DocSearchHit[]>
     preview(id: number): Promise<DocPreview>
@@ -347,6 +364,14 @@ export interface UniApi {
     setAutostart(enabled: boolean): Promise<void>
     /** Zeigt eine Windows-Benachrichtigung; ein Klick öffnet optional ein Modul (z. B. 'study') */
     notify(opts: { title: string; body: string; silent?: boolean; navigate?: 'home' | 'todo' | 'study' | 'calendar' | 'docs' | 'anki' }): Promise<void>
+    /** Technische Angaben (Versionen) für Fehlermeldungen, ohne persönliche Daten */
+    diagnostics(): Promise<string>
+    /** Öffnet GitHub im Browser mit einem vorausgefüllten Issue; abgeschickt wird dort vom Nutzer */
+    reportIssue(title: string, body: string): Promise<void>
+  }
+  search: {
+    /** Durchsucht Aufgaben, Termine, Lernplan, Karteikarten und Dokumente (inkl. Notizen) */
+    global(query: string): Promise<SearchResult[]>
   }
   anki: {
     decks(): Promise<AnkiDeck[]>

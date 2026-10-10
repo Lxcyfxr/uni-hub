@@ -35,6 +35,8 @@ const api: UniApi = {
     importPaths: (paths, folder) => ipcRenderer.invoke('docs:importPaths', paths, folder),
     pathForFile: (file) => webUtils.getPathForFile(file),
     update: (id, patch) => ipcRenderer.invoke('docs:update', id, patch),
+    getNotes: (id) => ipcRenderer.invoke('docs:getNotes', id),
+    setNotes: (id, text) => ipcRenderer.invoke('docs:setNotes', id, text),
     remove: (id) => ipcRenderer.invoke('docs:remove', id),
     search: (q) => ipcRenderer.invoke('docs:search', q),
     preview: (id) => ipcRenderer.invoke('docs:preview', id),
@@ -80,7 +82,12 @@ const api: UniApi = {
     wipeData: () => ipcRenderer.invoke('app:wipeData'),
     getAutostart: () => ipcRenderer.invoke('app:getAutostart'),
     setAutostart: (enabled) => ipcRenderer.invoke('app:setAutostart', enabled),
-    notify: (opts) => ipcRenderer.invoke('app:notify', opts)
+    notify: (opts) => ipcRenderer.invoke('app:notify', opts),
+    diagnostics: () => ipcRenderer.invoke('app:diagnostics'),
+    reportIssue: (title, body) => ipcRenderer.invoke('app:reportIssue', title, body)
+  },
+  search: {
+    global: (query) => ipcRenderer.invoke('search:global', query)
   },
   anki: {
     decks: () => ipcRenderer.invoke('anki:decks'),

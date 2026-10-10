@@ -19,9 +19,13 @@ import { flushSessionsOnQuit, persistSessionCookies } from './sessions'
 import { toast as notifyToast } from './notify'
 import { windowIcon } from './icon'
 import { lockMainWindow } from './links'
+import { isMac, isWin } from './platform'
 import { getAutostart, setAutostart, startedHidden } from './autostart'
 import { setupTray, showWindow } from './tray'
 import { readReminderSettings, startReminders } from './reminders'
+import { startDeadlineAndBreakReminders } from './deadlines'
+import { diagnostics, openIssue } from './report'
+import { globalSearch } from './search'
 import * as study from './study/store'
 import * as todos from './todos/store'
 import * as ankiStore from './anki/store'
@@ -52,7 +56,7 @@ function createWindow(): BrowserWindow {
     height: state.height,
     x: state.x,
     y: state.y,
-    backgroundColor: theme === 'light' ? '#ffffff' : '#000000',
+    backgroundColor: theme === 'light' ? '#f3f6fa' : '#0a1220',
     icon: windowIcon(),
     // Erst zeigen, wenn das erste Bild fertig ist (siehe unten) – kein leeres Fenster beim Start
     show: false,
@@ -117,6 +121,8 @@ function registerIpc(win: BrowserWindow): void {
   handle('docs:importDialog', (_e, folder: string | null) => docs.importDialog(win, v.optStr(folder, 200)))
   handle('docs:importPaths', (_e, paths: string[], folder: string | null) => docs.importPaths(v.paths(paths), v.optStr(folder, 200)))
   handle('docs:update', (_e, id: number, patch: DocUpdate) => docs.update(v.id(id), patch))
+  handle('docs:getNotes', (_e, id: number) => docs.getNotes(v.id(id)))
+  handle('docs:setNotes', (_e, id: number, text: string) => docs.setNotes(v.id(id), text))
   handle('docs:remove', (_e, id: number) => docs.remove(v.id(id)))
   handle('docs:search', (_e, q: string) => docs.search(v.str(q, 200)))
   handle('docs:preview', (_e, id: number) => docs.preview(v.id(id)))
@@ -175,6 +181,9 @@ function registerIpc(win: BrowserWindow): void {
     if (!ok) throw new Error('Benachrichtigungen werden auf diesem System nicht unterstützt')
   })
 
+  handle('search:global', (_e, q: string) => globalSearch(v.str(q, 200)))
+  handle('app:diagnostics', () => diagnostics())
+  handle('app:reportIssue', (_e, title: unknown, body: unknown) => openIssue(title, body))
   handle('app:getAutostart', () => getAutostart())
   handle('app:setAutostart', (_e, enabled: boolean) => setAutostart(enabled === true))
 
@@ -254,7 +263,7 @@ function captureAnkiDownloads(win: BrowserWindow): void {
 }
 
 // Eindeutige Kennung, unter der Windows die Benachrichtigungen der App einordnet
-app.setAppUserModelId('de.unihub.app')
+if (isWin) app.setAppUserModelId('de.unihub.app')
 
 // Nur eine Instanz: Eine zweite Kopie würde dieselbe Datenbank und dieselben Sitzungen öffnen
 const gotLock = app.requestSingleInstanceLock()
@@ -279,8 +288,10 @@ app.whenReady().then(() => {
     )
     return
   }
-  // Ohne Menüleiste (und damit ohne Entwickler-Tastenkürzel) in der installierten App
-  if (app.isPackaged) Menu.setApplicationMenu(null)
+  // Ohne Menüleiste (und damit ohne Entwickler-Tastenkürzel) in der installierten App;
+  // macOS braucht ein Menü, sonst funktionieren Kopieren/Einfügen und Cmd+Q nicht
+  if (isMac) Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]))
+  else if (app.isPackaged) Menu.setApplicationMenu(null)
   registerMediaHandler()
   const win = createWindow()
   trackWindowPerf(win)
@@ -297,6 +308,7 @@ app.whenReady().then(() => {
   loginPartitions.forEach((p) => persistSessionCookies(session.fromPartition(p)))
   flushSessionsOnQuit(loginPartitions)
   startReminders(win)
+  startDeadlineAndBreakReminders(win)
   // Altlast: gespeicherten Moodle-Token entfernen
   kvDelete('moodle.session')
   cal.syncAll().catch(() => {})
@@ -314,4 +326,10 @@ app.on('will-quit', () => {
   }
 })
 
-app.on('window-all-closed', () => app.quit())
+// macOS: Die App bleibt ohne Fenster aktiv (Beenden mit Cmd+Q); ein Klick auf das Dock-Symbol holt das Fenster zurück
+app.on('window-all-closed', () => {
+  if (!isMac) app.quit()
+})
+app.on('activate', () => {
+  if (mainWindow) showWindow(mainWindow)
+})

@@ -142,7 +142,8 @@ const MIGRATIONS = [
    UPDATE todos SET status = CASE WHEN done = 1 THEN 'done' ELSE 'open' END;
    UPDATE todos SET completed_at = created_at WHERE done = 1;
    INSERT INTO todo_categories (name) SELECT DISTINCT course FROM todos WHERE course IS NOT NULL AND TRIM(course) != '';
-   UPDATE todos SET category_id = (SELECT id FROM todo_categories WHERE name = todos.course) WHERE course IS NOT NULL;`
+   UPDATE todos SET category_id = (SELECT id FROM todo_categories WHERE name = todos.course) WHERE course IS NOT NULL;`,
+  `ALTER TABLE documents ADD COLUMN notes TEXT NOT NULL DEFAULT '';`
 ]
 
 let locked = false

@@ -6,15 +6,15 @@ import {
   CheckSquareOutlined,
   ClockCircleOutlined,
   EnvironmentOutlined,
-  FileTextOutlined,
   FireOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   RightOutlined
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
-import type { AnkiDeck, CalendarEvent, CalendarSource, DocumentItem, ModuleId, StudyStats, StudySubject, Todo, TodoCategory } from '@shared/ipc'
+import type { AnkiDeck, CalendarEvent, CalendarSource, ModuleId, StudyStats, StudySubject, Todo, TodoCategory } from '@shared/ipc'
 import { fmtClock, PHASE_LABEL, phaseMs, usePomodoro } from './pomodoro'
+import { C, PHASE, ANKI, ON_DARK, HIGHLIGHT, PROGRESS_RING, BRAND, tint } from '../theme/colors'
 
 const DAY = 'YYYY-MM-DD'
 const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`)
@@ -28,7 +28,6 @@ interface Data {
   subjects: StudySubject[]
   stats: StudyStats
   decks: AnkiDeck[]
-  docs: DocumentItem[]
 }
 
 function occursOn(e: CalendarEvent, day: Dayjs): boolean {
@@ -88,7 +87,7 @@ function Kpi({ icon, color, label, value, sub, onClick }: { icon: ReactNode; col
           width: 44,
           height: 44,
           borderRadius: token.borderRadiusLG,
-          background: `${color}26`,
+          background: tint(color, 15),
           color,
           fontSize: 22,
           display: 'flex',
@@ -146,7 +145,7 @@ function TodayCard({ now, data, go, onDone }: { now: Dayjs; data: Data; go: (m: 
                   marginBottom: 4,
                   borderRadius: token.borderRadius,
                   borderLeft: `4px solid ${colors.get(e.sourceId) ?? token.colorPrimary}`,
-                  background: running ? 'rgba(22,119,255,0.12)' : token.colorFillQuaternary,
+                  background: running ? HIGHLIGHT.running : token.colorFillQuaternary,
                   opacity: past ? 0.5 : 1
                 }}
               >
@@ -250,7 +249,7 @@ function WeekBars({ daily }: { daily: StudyStats['daily'] }) {
         return (
           <Tooltip key={d.date} title={`${dayjs(d.date).format('dddd, DD.MM.')}: ${d.minutes ? fmtMin(d.minutes) : 'nichts gelernt'}`}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: '100%', maxWidth: 28, height: h, borderRadius: 4, background: d.date === today ? token.colorPrimary : d.minutes ? 'rgba(22,119,255,0.45)' : token.colorFillSecondary }} />
+              <div style={{ width: '100%', maxWidth: 28, height: h, borderRadius: 4, background: d.date === today ? token.colorPrimary : d.minutes ? HIGHLIGHT.bar : token.colorFillSecondary }} />
               <Typography.Text type={d.date === today ? undefined : 'secondary'} style={{ fontSize: 11 }}>
                 {dayjs(d.date).format('dd')}
               </Typography.Text>
@@ -282,7 +281,7 @@ function LearningCard({ now, data, go }: { now: Dayjs; data: Data; go: (m: Modul
       ) : (
         <>
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 12 }}>
-            <Progress type="circle" size={96} percent={percent} strokeColor={{ '0%': '#1677ff', '100%': '#52c41a' }} />
+            <Progress type="circle" size={96} percent={percent} strokeColor={PROGRESS_RING} />
             <div>
               <Typography.Text strong style={{ fontSize: 16 }}>
                 {done} von {topics.length} Themen
@@ -338,7 +337,7 @@ function LearningCard({ now, data, go }: { now: Dayjs; data: Data; go: (m: Modul
 
 function FocusCard({ go }: { go: (m: ModuleId) => void }) {
   const p = usePomodoro()
-  const color = p.phase === 'work' ? '#ff4d4f' : p.phase === 'short' ? '#52c41a' : '#1677ff'
+  const color = PHASE[p.phase]
   const total = phaseMs(p.settings, p.phase)
   const left = p.status === 'idle' ? total : p.remainingMs
   return (
@@ -380,12 +379,12 @@ function AnkiCard({ decks, go }: { decks: AnkiDeck[]; go: (m: ModuleId) => void 
         <>
           <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
             {[
-              { label: 'Neu', value: sum('newCount'), color: '#4096ff' },
-              { label: 'Lernen', value: sum('learnCount'), color: '#ff7875' },
-              { label: 'Fällig', value: sum('dueCount'), color: '#73d13d' }
+              { label: 'Neu', value: sum('newCount'), color: ANKI.new },
+              { label: 'Lernen', value: sum('learnCount'), color: ANKI.learn },
+              { label: 'Fällig', value: sum('dueCount'), color: ANKI.due }
             ].map((c) => (
               <div key={c.label}>
-                <div style={{ fontSize: 26, fontWeight: 600, color: c.value ? c.color : 'rgba(255,255,255,0.25)', lineHeight: 1.1 }}>{c.value}</div>
+                <div style={{ fontSize: 26, fontWeight: 600, color: c.value ? c.color : ON_DARK.textFaint, lineHeight: 1.1 }}>{c.value}</div>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   {c.label}
                 </Typography.Text>
@@ -401,26 +400,6 @@ function AnkiCard({ decks, go }: { decks: AnkiDeck[]; go: (m: ModuleId) => void 
   )
 }
 
-function DocsCard({ docs, go }: { docs: DocumentItem[]; go: (m: ModuleId) => void }) {
-  return (
-    <Panel title="Zuletzt im Doc-Hub" icon={<FileTextOutlined />} onMore={() => go('docs')}>
-      {docs.length === 0 ? (
-        <Typography.Text type="secondary">Noch keine Dokumente.</Typography.Text>
-      ) : (
-        docs.slice(0, 5).map((d) => (
-          <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', cursor: 'pointer' }} onClick={() => go('docs')}>
-            <Tag style={{ margin: 0, width: 46, textAlign: 'center' }}>{d.ext.toUpperCase()}</Tag>
-            <Typography.Text ellipsis style={{ flex: 1 }}>
-              {d.title}
-            </Typography.Text>
-            {d.folder && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{d.folder}</Typography.Text>}
-          </div>
-        ))
-      )}
-    </Panel>
-  )
-}
-
 /* ---------- Seite ---------- */
 
 export function HomeView({ go }: { go: (m: ModuleId) => void }) {
@@ -430,17 +409,16 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
 
   const load = useCallback(async () => {
     const start = dayjs().startOf('day')
-    const [events, sources, todos, categories, subjects, stats, decks, docs] = await Promise.all([
+    const [events, sources, todos, categories, subjects, stats, decks] = await Promise.all([
       window.uni.calendar.events(start.toISOString(), start.add(8, 'day').toISOString()),
       window.uni.calendar.sources(),
       window.uni.todos.list(),
       window.uni.todos.categories(),
       window.uni.study.list(),
       window.uni.study.stats(),
-      window.uni.anki.decks(),
-      window.uni.docs.list()
+      window.uni.anki.decks()
     ])
-    setData({ events, sources, todos, categories, subjects, stats, decks, docs })
+    setData({ events, sources, todos, categories, subjects, stats, decks })
     setNow(dayjs())
   }, [])
 
@@ -502,7 +480,7 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, marginBottom: 16 }}>
         <Kpi
           icon={<CalendarOutlined />}
-          color="#1677ff"
+          color={BRAND}
           label="Termine heute"
           value={summary.events.length}
           sub={summary.upcoming ? `Als Nächstes ${dayjs(summary.upcoming.start).format('HH:mm')} · ${summary.upcoming.title}` : summary.events.length ? 'Keine weiteren heute' : 'Nichts geplant'}
@@ -510,7 +488,7 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
         />
         <Kpi
           icon={<CheckSquareOutlined />}
-          color="#fa8c16"
+          color={C.orange}
           label="Aufgaben fällig"
           value={summary.due.length}
           sub={`${summary.overdue ? `${summary.overdue} überfällig · ` : ''}${summary.doing} in Bearbeitung`}
@@ -518,7 +496,7 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
         />
         <Kpi
           icon={<ClockCircleOutlined />}
-          color="#eb2f96"
+          color={C.magenta}
           label="Gelernt heute"
           value={fmtMin(data.stats.todayMinutes)}
           sub={`Woche: ${fmtMin(data.stats.weekMinutes)}${data.stats.streak ? ` · Serie ${data.stats.streak}` : ''}`}
@@ -526,7 +504,7 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
         />
         <Kpi
           icon={<BookOutlined />}
-          color="#52c41a"
+          color={C.green}
           label="Anki-Karten offen"
           value={summary.ankiOpen}
           sub={data.decks.length ? 'Neu, Lernen und Fällig' : 'Noch keine Stapel'}
@@ -543,7 +521,6 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
           <LearningCard now={now} data={data} go={go} />
           <FocusCard go={go} />
           <AnkiCard decks={data.decks} go={go} />
-          <DocsCard docs={data.docs} go={go} />
         </Space>
       </div>
     </div>
