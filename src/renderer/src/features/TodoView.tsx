@@ -10,6 +10,7 @@ import { CategorySelect } from './todo/CategorySelect'
 import { GroupedList } from './todo/GroupedList'
 import { TodoModal } from './todo/TodoModal'
 import { cleanErr } from './todo/helpers'
+import { TODO } from '../theme/colors'
 
 type View = 'board' | 'list'
 /** 'all' = alle, 'none' = ohne Kategorie, sonst Kategorie-ID */
@@ -183,7 +184,7 @@ export function TodoView() {
         )}
         <Typography.Text type="secondary" style={{ marginLeft: 'auto' }}>
           {stats.open} offen · {stats.doing} in Bearbeitung · {stats.done} erledigt
-          {stats.overdue > 0 && <span style={{ color: '#ff7875' }}> · {stats.overdue} überfällig</span>}
+          {stats.overdue > 0 && <span style={{ color: TODO.overdue }}> · {stats.overdue} überfällig</span>}
         </Typography.Text>
       </div>
 

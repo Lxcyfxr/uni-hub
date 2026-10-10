@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { ConfigProvider, theme } from 'antd'
 import deDE from 'antd/locale/de_DE'
+import { PALETTES, applyPalette } from '../theme/colors'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -18,8 +19,9 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  useEffect(() => {
-    document.body.style.background = mode === 'dark' ? '#000' : '#fff'
+  useLayoutEffect(() => {
+    applyPalette(mode)
+    document.body.style.background = PALETTES[mode].bg
   }, [mode])
 
   const setMode = (m: ThemeMode) => {
@@ -27,11 +29,31 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
     window.uni.ui.set('ui.theme', m)
   }
 
+  const p = PALETTES[mode]
+
   return (
     <Ctx.Provider value={{ mode, setMode }}>
       <ConfigProvider
         locale={deDE}
-        theme={{ algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#1677ff' } }}
+        theme={{
+          algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+          token: {
+            colorPrimary: p.primary,
+            colorInfo: p.primary,
+            colorSuccess: p.success,
+            colorWarning: p.warning,
+            colorError: p.danger,
+            colorLink: p.primary,
+            colorBgBase: p.surface,
+            colorBgLayout: p.bg,
+            colorTextBase: p.text,
+            colorBorder: p.border
+          },
+          components: {
+            Layout: { siderBg: p.sidebar, bodyBg: p.bg },
+            Menu: { darkItemBg: p.sidebar, darkSubMenuItemBg: p.sidebar, darkItemSelectedBg: p.primary }
+          }
+        }}
       >
         {children}
       </ConfigProvider>

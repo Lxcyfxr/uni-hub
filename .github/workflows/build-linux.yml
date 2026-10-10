@@ -1,0 +1,38 @@
+name: Build Linux
+
+# Läuft nur auf Abruf oder bei einem Versions-Tag
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist:linux
+      # Startet die entpackte App ohne Bildschirm (xvfb). --no-sandbox nur hier: Der CI-Runner kann chrome-sandbox nicht als root einrichten
+      - name: Selbsttest der gebauten App
+        run: |
+          sudo apt-get install -y xvfb
+          xvfb-run -a release/linux-unpacked/uni-hub --no-sandbox --selftest="$RUNNER_TEMP/selftest.json"
+          cat "$RUNNER_TEMP/selftest.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uni-hub-linux
+          path: |
+            release/*.AppImage
+            release/*.deb
+            ${{ runner.temp }}/selftest.json

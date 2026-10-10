@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import type { Todo, TodoCategory, TodoStatus } from '@shared/ipc'
 import { STATUSES, STATUS_META, dueInfo, sortTodos } from './helpers'
+import { TODO, HIGHLIGHT } from '../../theme/colors'
 
 interface Props {
   todos: Todo[]
@@ -66,7 +67,7 @@ function TodoCard({ todo, category, dragging, onDragStart, onDragEnd, onMove, on
         </Typography.Text>
         {todo.priority === 2 && (
           <Tooltip title="Hohe Priorität">
-            <FlagFilled style={{ color: '#ff4d4f', marginTop: 4 }} />
+            <FlagFilled style={{ color: TODO.priorityHigh, marginTop: 4 }} />
           </Tooltip>
         )}
         {todo.priority === 0 && (
@@ -100,7 +101,7 @@ function TodoCard({ todo, category, dragging, onDragStart, onDragEnd, onMove, on
                 <Button size="small" type="text" icon={<UndoOutlined />} onClick={() => onMove('open')} />
               </Tooltip>
               <Tooltip title="Als erledigt markieren">
-                <Button size="small" type="text" icon={<CheckCircleOutlined />} style={{ color: '#52c41a' }} onClick={() => onMove('done')} />
+                <Button size="small" type="text" icon={<CheckCircleOutlined />} style={{ color: TODO.doneAction }} onClick={() => onMove('done')} />
               </Tooltip>
             </>
           )}
@@ -151,7 +152,7 @@ export function Board({ todos, categories, onMove, onEdit, onRemove, onAdd }: Pr
               if (id) onMove(id, status)
             }}
             style={{
-              background: active ? 'rgba(22,119,255,0.08)' : token.colorFillQuaternary,
+              background: active ? HIGHLIGHT.dropTarget : token.colorFillQuaternary,
               border: `1px ${active ? 'dashed' : 'solid'} ${active ? token.colorPrimary : token.colorBorderSecondary}`,
               borderRadius: token.borderRadiusLG,
               padding: 12,

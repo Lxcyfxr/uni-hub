@@ -49,6 +49,18 @@ npm run test:electron # Sicherheitstests im echten Electron (Navigation, Berecht
 ```bash
 npm run dist         # erzeugt release/Uni-Hub-Setup-<Version>.exe (NSIS, pro Benutzer)
 npm run pack         # nur entpackte App in release/win-unpacked (schneller)
+
+### Weitere Plattformen
+
+Die Build-Einstellungen liegen getrennt in `config/` (`base`, `win`, `mac`, `linux`). Jede Plattform wird auf ihrem eigenen System gebaut; plattformspezifischer Code steht hinter `isWin`/`isMac`/`isLinux` (`src/main/platform.ts`).
+
+| System | Befehl | Ergebnis | CI |
+| --- | --- | --- | --- |
+| Windows | `npm run dist:win` | `release/Uni-Hub-Setup-<Version>.exe` | `ci.yml` |
+| macOS | `npm run dist:mac` | `release/Uni-Hub-<Version>-<arch>.dmg` (nicht notarisiert) | `build-mac.yml` |
+| Linux | `npm run dist:linux` | `.AppImage` und `.deb` | `build-linux.yml` |
+
+Die Mac- und Linux-Workflows laufen nur auf Abruf (*Actions → Run workflow*) oder bei einem Tag `v*`. Das Mac-Icon (`build/icon-1024.png`) erzeugt `node scripts/make-mac-icon.mjs`.
 npm run verify:release # prüft den Build: Electron-Fuses, Paketinhalt, CSP (nach pack/dist)
 ```
 

@@ -1,0 +1,27 @@
+{
+  "appId": "de.unihub.app",
+  "productName": "Uni-Hub",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "out/**/*",
+    "package.json",
+    "!**/*.map",
+    "!node_modules/@napi-rs/**",
+    "!node_modules/pdfjs-dist/{build,web,image_decoders,wasm,iccs}/**",
+    "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**"
+  ],
+  "extraResources": ["LICENSE", "THIRD-PARTY-LICENSES.md"],
+  "copyright": "Copyright © Lxcyfxr",
+  "compression": "maximum",
+  "electronFuses": {
+    "runAsNode": false,
+    "enableNodeOptionsEnvironmentVariable": false,
+    "enableNodeCliInspectArguments": false,
+    "enableEmbeddedAsarIntegrityValidation": true,
+    "onlyLoadAppFromAsar": true,
+    "enableCookieEncryption": true
+  }
+}

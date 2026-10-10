@@ -1,0 +1,37 @@
+name: Build macOS
+
+# Läuft nur auf Abruf oder bei einem Versions-Tag, damit keine macOS-Minuten verbraucht werden
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist:mac
+      # Startet die gebaute App und prüft Datenbank, Dokumente, Kalender und Sicherheitsflags
+      - name: Selbsttest der gebauten App
+        run: |
+          APP=$(ls -d release/mac*/Uni-Hub.app | head -n 1)
+          "$APP/Contents/MacOS/Uni-Hub" --selftest="$RUNNER_TEMP/selftest.json"
+          cat "$RUNNER_TEMP/selftest.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uni-hub-mac
+          path: |
+            release/*.dmg
+            ${{ runner.temp }}/selftest.json

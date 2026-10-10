@@ -10,8 +10,14 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dist": "node scripts/licenses.js && electron-vite build && electron-builder --win nsis && node scripts/checksums.mjs",
-    "pack": "electron-vite build && electron-builder --win dir",
+    "dist": "npm run dist:win",
+    "pack": "npm run pack:win",
+    "dist:win": "node scripts/licenses.js && electron-vite build && electron-builder --config config/electron-builder.win.json --win nsis && node scripts/checksums.mjs",
+    "pack:win": "electron-vite build && electron-builder --config config/electron-builder.win.json --win dir",
+    "dist:linux": "node scripts/licenses.js && electron-vite build && electron-builder --config config/electron-builder.linux.json --linux",
+    "pack:linux": "electron-vite build && electron-builder --config config/electron-builder.linux.json --linux dir",
+    "dist:mac": "node scripts/licenses.js && electron-vite build && electron-builder --config config/electron-builder.mac.json --mac",
+    "pack:mac": "electron-vite build && electron-builder --config config/electron-builder.mac.json --mac dir",
     "test": "vitest run",
     "licenses": "node scripts/licenses.js",
     "selftest": "electron-vite build && electron . --selftest=selftest-result.json",
@@ -50,65 +56,6 @@
     "zustand": "^5.0.15"
   },
   "author": "Lxcyfxr",
-  "build": {
-    "appId": "de.unihub.app",
-    "productName": "Uni-Hub",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "files": [
-      "out/**/*",
-      "package.json",
-      "!**/*.map",
-      "!node_modules/@napi-rs/**",
-      "!node_modules/pdfjs-dist/{build,web,image_decoders,wasm,iccs}/**",
-      "!node_modules/pdfjs-dist/legacy/{web,image_decoders}/**"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
-    },
-    "nsis": {
-      "license": "LICENSE",
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Uni-Hub",
-      "deleteAppDataOnUninstall": false,
-      "uninstallDisplayName": "Uni-Hub"
-    },
-    "extraResources": [
-      "LICENSE",
-      "THIRD-PARTY-LICENSES.md"
-    ],
-    "electronDist": "node_modules/electron/dist",
-    "copyright": "Copyright © Lxcyfxr",
-    "artifactName": "Uni-Hub-Setup-${version}.${ext}",
-    "compression": "maximum",
-    "electronLanguages": [
-      "de",
-      "en-US"
-    ],
-    "electronFuses": {
-      "runAsNode": false,
-      "enableNodeOptionsEnvironmentVariable": false,
-      "enableNodeCliInspectArguments": false,
-      "enableEmbeddedAsarIntegrityValidation": true,
-      "onlyLoadAppFromAsar": true,
-      "enableCookieEncryption": true
-    }
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Lxcyfxr/uni-hub.git"

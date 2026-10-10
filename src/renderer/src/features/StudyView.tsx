@@ -36,10 +36,11 @@ import {
 import dayjs, { type Dayjs } from 'dayjs'
 import type { StudyStats, StudySubject } from '@shared/ipc'
 import { PHASE_LABEL, fmtClock, phaseMs, usePomodoro, type Phase } from './pomodoro'
+import { PHASE, ON_DARK, DEFAULT_SOURCE_COLOR, SUCCESS } from '../theme/colors'
 
 const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 const DAY = 'YYYY-MM-DD'
-const PHASE_COLOR: Record<Phase, string> = { work: '#ff4d4f', short: '#52c41a', long: '#1677ff' }
+const PHASE_COLOR: Record<Phase, string> = PHASE
 
 const fmtMinutes = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim() : `${m} min`)
 const pct = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0)
@@ -163,7 +164,7 @@ function PomodoroCard({ subjects, stats }: { subjects: StudySubject[]; stats: St
       </Space>
       <Space size={6} aria-label={`Runde ${Math.min(filled + 1, p.settings.cycles)} von ${p.settings.cycles}`}>
         {Array.from({ length: p.settings.cycles }, (_, i) => (
-          <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < filled ? PHASE_COLOR.work : 'rgba(255,255,255,0.18)' }} />
+          <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < filled ? PHASE_COLOR.work : ON_DARK.dot }} />
         ))}
       </Space>
       <Select
@@ -200,7 +201,7 @@ function SubjectModal({ open, subject, onClose, onSaved }: { open: boolean; subj
 
   useEffect(() => {
     if (!open) return
-    form.setFieldsValue({ name: subject?.name ?? '', color: subject?.color ?? '#1677ff', exam: subject?.examDate ? dayjs(subject.examDate) : null })
+    form.setFieldsValue({ name: subject?.name ?? '', color: subject?.color ?? DEFAULT_SOURCE_COLOR, exam: subject?.examDate ? dayjs(subject.examDate) : null })
   }, [open, subject, form])
 
   const save = async () => {
@@ -383,7 +384,7 @@ export function StudyView() {
         <Progress
           percent={overall}
           size={['100%', 18]}
-          strokeColor={{ from: token.colorPrimary, to: '#52c41a' }}
+          strokeColor={{ from: token.colorPrimary, to: SUCCESS }}
           status={overall === 100 ? 'success' : 'active'}
         />
         <Typography.Text type="secondary">

@@ -1,0 +1,26 @@
+{
+  "extends": "config/electron-builder.base.json",
+  "electronLanguages": ["de", "en-US"],
+  "artifactName": "Uni-Hub-${version}-${arch}.${ext}",
+  "linux": {
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] }
+    ],
+    "icon": "build/icon-1024.png",
+    "category": "Education",
+    "maintainer": "Lxcyfxr <noreply@users.noreply.github.com>",
+    "synopsis": "Studienorganisation: Kalender, To-Do, Lernplaner, Anki und Dokumente",
+    "executableName": "uni-hub",
+    "desktop": {
+      "entry": {
+        "Name": "Uni-Hub",
+        "Comment": "Studienorganisation",
+        "Categories": "Education;Office;"
+      }
+    }
+  },
+  "deb": {
+    "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0"]
+  }
+}

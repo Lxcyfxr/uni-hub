@@ -1,4 +1,5 @@
 import { nativeImage, type NativeImage } from 'electron'
+import { isMac } from './platform'
 
 /**
  * Das App-Symbol wird zur Laufzeit gezeichnet (blaues, abgerundetes Quadrat mit weißem „U“),
@@ -52,10 +53,31 @@ function renderBitmap(size: number): Buffer {
 
 const bitmapImage = (size: number, scaleFactor = 1): NativeImage => nativeImage.createFromBitmap(renderBitmap(size), { width: size, height: size, scaleFactor })
 
-/** Symbol für den Infobereich: 16 px bei 100 % und 32 px bei 200 % Skalierung */
+/** Nur das „U“ in Schwarz mit Transparenz – macOS färbt solche Template-Bilder passend zur Menüleiste ein */
+function renderTemplate(size: number): Buffer {
+  const buf = Buffer.alloc(size * size * 4)
+  const n = SAMPLES * SAMPLES
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      let on = 0
+      for (let sy = 0; sy < SAMPLES; sy++) {
+        for (let sx = 0; sx < SAMPLES; sx++) {
+          if (inLetter((px + (sx + 0.5) / SAMPLES) / size, (py + (sy + 0.5) / SAMPLES) / size)) on++
+        }
+      }
+      buf[(py * size + px) * 4 + 3] = Math.round((on / n) * 255)
+    }
+  }
+  return buf
+}
+
+/** Symbol für den Infobereich (Windows) bzw. die Menüleiste (macOS): 100 % und 200 % Skalierung */
 export function trayIcon(): NativeImage {
-  const img = bitmapImage(16)
-  img.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: renderBitmap(32) })
+  const render = isMac ? renderTemplate : renderBitmap
+  const size = isMac ? 18 : 16
+  const img = nativeImage.createFromBitmap(render(size), { width: size, height: size, scaleFactor: 1 })
+  img.addRepresentation({ scaleFactor: 2, width: size * 2, height: size * 2, buffer: render(size * 2) })
+  if (isMac) img.setTemplateImage(true)
   return img
 }
 
