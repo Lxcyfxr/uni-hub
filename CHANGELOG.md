@@ -2,6 +2,30 @@
 
 Alle nennenswerten Änderungen an Uni-Hub. Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach [SemVer](https://semver.org/lang/de/).
 
+## [0.2.0] – 2026-10-11
+
+### Hinzugefügt
+- **Prüfungsplan:** Trage bei einem Fach den Prüfungstermin ein und lege je Thema Umfang (S/M/L) und Schwierigkeit fest. Uni-Hub verteilt die offenen Themen auf deine freien Lerntage, berücksichtigt deine Lernzeit pro Wochentag und passt den Plan an, wenn etwas liegen bleibt. Mit genug Daten lernt er deine tatsächliche Lerngeschwindigkeit.
+- Der heutige Lernplan steht in der Morgenmeldung und im Tray-Popup.
+- **Kalender** mit Tages-, Wochen-, Monats- und Jahresansicht.
+- **Fristen- und Pausenerinnerung:** tägliche Meldung zu anstehenden Aufgaben und Erinnerung an eine Lernpause nach längerer aktiver Nutzung.
+- **Tray-Popup** mit den heutigen Terminen, Fristen und dem Lernplan.
+- **Globale Suche** (Strg+K) über Aufgaben, Termine, Lernplan, Karteikarten und Dokumente.
+- **Dokumentnotizen** im Doc-Hub (durchsuchbar).
+- **Problem melden** in den Einstellungen: öffnet ein vorausgefülltes GitHub-Issue; Uni-Hub sendet selbst nichts.
+- **Builds für macOS und Linux** (`.dmg`, `.AppImage`, `.deb`), plattformspezifischer Tray, Autostart und Menü sowie ein Release-Workflow für Tags.
+- Zentrale Theme-Farben für Hell und Dunkel.
+
+### Geändert
+- **Schneller:** Neue Datenbank-Indizes beschleunigen das Löschen von Karten und Stapeln (2.000 Karten: 7,5 s → 15 ms) und die Lernzeit-Summen im Lernplan; die globale Suche liest nur noch, was sie braucht.
+- Der Lernplan rechnet höchstens zwei Jahre voraus.
+- Linux-Autostart maskiert Sonderzeichen im Startpfad vollständig.
+- Build-Einstellungen liegen getrennt je Plattform in `config/`.
+
+### Technik
+- 92 Unit-Tests, 14 Sicherheitstests in Electron.
+- Neue Datenbank-Migrationen 9 (Umfang und Schwierigkeit je Thema) und 10 (Indizes); bestehende Daten bleiben erhalten.
+
 ## [0.1.0] – 2026-10-09
 
 Erste Version.

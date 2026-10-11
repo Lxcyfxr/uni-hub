@@ -1,5 +1,30 @@
 # Uni-Hub – Release Notes
 
+## 0.2.0 – Prüfungsplan, Kalender-Ansichten und macOS/Linux
+
+Uni-Hub plant jetzt dein Lernen bis zur Prüfung, der Kalender hat vier Ansichten, und die App gibt es auch für macOS und Linux. Update: neuen Installer ausführen, deine Daten bleiben erhalten.
+
+### Neu
+- **Prüfungsplan:** Prüfungstermin je Fach, Umfang und Schwierigkeit je Thema, Lernzeit pro Wochentag. Uni-Hub verteilt die offenen Themen auf deine freien Tage und zeigt, wenn die Zeit nicht reicht.
+- **Lernplan für heute** in der Morgenmeldung und im Tray-Popup.
+- **Kalender:** Tages-, Wochen-, Monats- und Jahresansicht.
+- **Erinnerungen:** tägliche Meldung zu Fristen und eine Lernpause nach längerer Nutzung.
+- **Tray-Popup** mit Terminen, Fristen und Lernplan von heute.
+- **Globale Suche** mit Strg+K über Aufgaben, Termine, Lernplan, Karten und Dokumente.
+- **Dokumentnotizen** im Doc-Hub.
+- **Problem melden** in den Einstellungen (öffnet ein vorausgefülltes GitHub-Issue, sendet selbst nichts).
+- **macOS und Linux:** `.dmg`, `.AppImage` und `.deb` (siehe Hinweise unten).
+
+### Verbessert
+- Karten und Stapel löschen ist bei großen Beständen deutlich schneller (2.000 Karten: 7,5 s → 15 ms), ebenso die Lernzeit-Übersicht.
+- Linux-Autostart ist robuster.
+
+### Hinweise
+- **macOS und Linux sind neu und nicht auf Geräten getestet.** Tray, Autostart und Benachrichtigungen können sich dort anders verhalten. Die Mac-App ist nicht signiert: Beim ersten Start unter *Systemeinstellungen → Datenschutz & Sicherheit* auf „Trotzdem öffnen“ klicken.
+- **Windows:** Der Installer ist nicht signiert, SmartScreen warnt beim ersten Start („Weitere Informationen → Trotzdem ausführen“).
+
+---
+
 ## 0.1.0 – Erste Version
 
 Uni-Hub ist eine Windows-App zur Studienorganisation: Kalender, Aufgaben, Lernplaner, Karteikarten, Dokumente und deine Uni-Webdienste an einem Ort. Alle Daten bleiben lokal auf deinem Rechner.
