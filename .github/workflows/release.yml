@@ -1,0 +1,78 @@
+name: Release
+
+# Ein Tag wie 0.3.0 (oder 0.3.0-beta.1) baut die Installer für alle Systeme und legt ein GitHub-Release an.
+# Ablauf: Entwicklung auf der Branch 0.3.x → nach main mergen → auf main taggen → Tag pushen.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist:win
+            files: |
+              release/Uni-Hub-Setup-*.exe
+              release/SHA256SUMS.txt
+          - os: macos-latest
+            script: dist:mac
+            files: release/*.dmg
+          - os: ubuntu-latest
+            script: dist:linux
+            files: |
+              release/*.AppImage
+              release/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Version in package.json muss zum Tag passen
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "${TAG#v}" ]; then
+            echo "package.json hat Version $VERSION, der Tag lautet $TAG" >&2
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Nur dieser Schritt darf schreiben (Release anlegen)
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          FLAGS=""
+          case "$TAG" in *-*) FLAGS="--prerelease" ;; esac
+          gh release create "$TAG" dist/* --title "Uni-Hub $TAG" --notes-file RELEASE-NOTES.md $FLAGS

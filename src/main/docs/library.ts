@@ -25,6 +25,7 @@ interface Row {
   tags: string
   added_at: string
   has_text: number
+  notes: string
 }
 
 const parseTags = (s: string) => s.split(',').map((t) => t.trim()).filter(Boolean)
@@ -39,7 +40,8 @@ const toItem = (r: Row): DocumentItem => ({
   folder: r.folder,
   tags: parseTags(r.tags),
   addedAt: r.added_at,
-  hasText: !!r.has_text
+  hasText: !!r.has_text,
+  hasNotes: !!r.notes?.trim()
 })
 
 /** Titel, Ordner und Tags zusammen durchsuchbar machen */
@@ -188,6 +190,18 @@ export function update(id: number, raw: DocUpdate): void {
   row(id)
   db.prepare('UPDATE documents SET title = ?, folder = ?, tags = ? WHERE id = ?').run(title, folder, tags, id)
   db.prepare('UPDATE docs_fts SET title = ? WHERE rowid = ?').run(ftsTitle(title, folder, tags), id)
+}
+
+const MAX_NOTES = 100_000
+
+export function getNotes(id: number): string {
+  return row(id).notes ?? ''
+}
+
+export function setNotes(id: number, text: string): void {
+  const notes = str(text, MAX_NOTES, 'Notiz')
+  row(id)
+  getDb().prepare('UPDATE documents SET notes = ? WHERE id = ?').run(notes, id)
 }
 
 export async function remove(id: number): Promise<void> {

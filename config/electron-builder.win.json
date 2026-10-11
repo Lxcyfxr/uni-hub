@@ -1,0 +1,22 @@
+{
+  "extends": "config/electron-builder.base.json",
+  "electronDist": "node_modules/electron/dist",
+  "electronLanguages": ["de", "en-US"],
+  "artifactName": "Uni-Hub-Setup-${version}.${ext}",
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "icon": "build/icon.ico",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "nsis": {
+    "license": "LICENSE",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Uni-Hub",
+    "deleteAppDataOnUninstall": false,
+    "uninstallDisplayName": "Uni-Hub"
+  }
+}

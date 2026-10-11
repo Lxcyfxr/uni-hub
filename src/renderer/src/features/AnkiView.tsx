@@ -32,10 +32,11 @@ import { StudyScreen } from './anki/StudyScreen'
 import { BrowseView } from './anki/BrowseView'
 import { NoteEditor } from './anki/NoteEditor'
 import { cleanErr, plural, summarizeImport } from './anki/util'
+import { ANKI, ON_DARK } from '../theme/colors'
 
 type Screen = { kind: 'decks' } | { kind: 'study'; deckId: number } | { kind: 'browse'; deckId: number | null }
 
-const count = (n: number, color: string) => <span style={{ color: n > 0 ? color : 'rgba(255,255,255,0.25)', fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+const count = (n: number, color: string) => <span style={{ color: n > 0 ? color : ON_DARK.textFaint, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
 
 export function AnkiView() {
   const { message, modal } = AntApp.useApp()
@@ -219,9 +220,9 @@ export function AnkiView() {
               </Button>
             )
           },
-          { title: 'Neu', dataIndex: 'newCount', width: 80, align: 'right', render: (n: number) => count(n, '#4096ff') },
-          { title: 'Lernen', dataIndex: 'learnCount', width: 90, align: 'right', render: (n: number) => count(n, '#ff7875') },
-          { title: 'Fällig', dataIndex: 'dueCount', width: 90, align: 'right', render: (n: number) => count(n, '#73d13d') },
+          { title: 'Neu', dataIndex: 'newCount', width: 80, align: 'right', render: (n: number) => count(n, ANKI.new) },
+          { title: 'Lernen', dataIndex: 'learnCount', width: 90, align: 'right', render: (n: number) => count(n, ANKI.learn) },
+          { title: 'Fällig', dataIndex: 'dueCount', width: 90, align: 'right', render: (n: number) => count(n, ANKI.due) },
           { title: 'Karten', dataIndex: 'total', width: 90, align: 'right', render: (n: number) => <span style={{ opacity: 0.65 }}>{n}</span> },
           {
             title: '',

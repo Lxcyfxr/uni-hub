@@ -49,6 +49,18 @@ npm run test:electron # Sicherheitstests im echten Electron (Navigation, Berecht
 ```bash
 npm run dist         # erzeugt release/Uni-Hub-Setup-<Version>.exe (NSIS, pro Benutzer)
 npm run pack         # nur entpackte App in release/win-unpacked (schneller)
+
+### Weitere Plattformen
+
+Die Build-Einstellungen liegen getrennt in `config/` (`base`, `win`, `mac`, `linux`). Jede Plattform wird auf ihrem eigenen System gebaut; plattformspezifischer Code steht hinter `isWin`/`isMac`/`isLinux` (`src/main/platform.ts`).
+
+| System | Befehl | Ergebnis | CI |
+| --- | --- | --- | --- |
+| Windows | `npm run dist:win` | `release/Uni-Hub-Setup-<Version>.exe` | `ci.yml` |
+| macOS | `npm run dist:mac` | `release/Uni-Hub-<Version>-<arch>.dmg` (nicht notarisiert) | `build-mac.yml` |
+| Linux | `npm run dist:linux` | `.AppImage` und `.deb` | `build-linux.yml` |
+
+Die Mac- und Linux-Workflows laufen nur auf Abruf (*Actions → Run workflow*) oder bei einem Tag `v*`. Das Mac-Icon (`build/icon-1024.png`) erzeugt `node scripts/make-mac-icon.mjs`.
 npm run verify:release # prüft den Build: Electron-Fuses, Paketinhalt, CSP (nach pack/dist)
 ```
 
@@ -96,6 +108,24 @@ Ausführlich: [PRIVACY.md](PRIVACY.md) (Datenflüsse, Löschen, Export) und [SEC
 - **Keine automatischen Updates:** Neue Versionen werden per neuem Installer eingespielt (Daten bleiben erhalten).
 - Anki: keine getippten Antworten, keine gefilterten Stapel; Exporte sind auf 1 GB Medien begrenzt. Die Kompatibilität mit echten Anki-Paketen ist mit nachgebauten Testdateien geprüft, nicht mit dem Original-Anki.
 - Gescannte PDFs sind nicht durchsuchbar (keine Texterkennung).
+
+## Branches und Releases
+
+- **`main`** enthält nur veröffentlichte Stände. Jeder Merge nach `main` ist ein Release.
+- **`0.3.x`, `0.4.x`, …** sind die Entwicklungsbranches, je eine pro Minor-Version. Alle Patch-Releases (`0.3.0`, `0.3.1`, …) entstehen auf derselben Branch.
+- **Tags** (`0.3.0`, `0.3.1`, `0.3.2-beta.1`, ohne „v“) markieren jede Veröffentlichung.
+
+Ablauf eines Releases:
+
+```bash
+# 1. Version in package.json auf der Entwicklungsbranch setzen und committen (z. B. 0.3.0)
+git switch main
+git merge --no-ff 0.3.x
+git tag 0.3.0
+git push origin main --tags     # startet .github/workflows/release.yml
+```
+
+Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit `RELEASE-NOTES.md` an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
 
 ## Lizenz
 

@@ -1,9 +1,10 @@
 import dayjs from 'dayjs'
 import type { Todo, TodoCategory, TodoStatus } from '@shared/ipc'
+import { PALETTE as THEME_PALETTE, STATUS } from '../../theme/colors'
 
 export const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 
-export const PALETTE = ['#1677ff', '#52c41a', '#fa8c16', '#eb2f96', '#722ed1', '#13c2c2', '#faad14', '#f5222d']
+export const PALETTE = THEME_PALETTE
 
 /** Nächste noch wenig genutzte Farbe für eine neue Kategorie */
 export function nextColor(categories: TodoCategory[]): string {
@@ -13,9 +14,9 @@ export function nextColor(categories: TodoCategory[]): string {
 }
 
 export const STATUS_META: Record<TodoStatus, { label: string; color: string }> = {
-  open: { label: 'Offen', color: '#8c8c8c' },
-  doing: { label: 'In Bearbeitung', color: '#1677ff' },
-  done: { label: 'Erledigt', color: '#52c41a' }
+  open: { label: 'Offen', color: STATUS.open },
+  doing: { label: 'In Bearbeitung', color: STATUS.doing },
+  done: { label: 'Erledigt', color: STATUS.done }
 }
 
 export const STATUSES: TodoStatus[] = ['open', 'doing', 'done']

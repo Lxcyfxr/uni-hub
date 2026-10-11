@@ -23,6 +23,7 @@ Nur auf deine Veranlassung und nur an die jeweiligen Dienste:
 
 - **Dienst-Tabs** (Exchange, lehre.charite, AMBOSS, MOSES): Du nutzt die Webseiten dieser Anbieter; es gelten deren Datenschutzbestimmungen. Uni-Hub liest ihre Inhalte nicht mit; Downloads aus Exchange und lehre.charite werden lokal im Doc-Hub bzw. in Anki abgelegt.
 - **Kalender-Abos**: Uni-Hub ruft die iCal-Adresse ab, die du eingetragen hast (nur über HTTPS). Der Anbieter des Kalenders sieht dabei deine IP-Adresse.
+- **Problem melden** (*Einstellungen → Problem melden*): Ein Klick öffnet GitHub im Standardbrowser mit einem vorausgefüllten Issue. Uni-Hub sendet dabei selbst nichts; abgeschickt wird erst auf GitHub (Microsoft, USA) mit deinem eigenen Konto und nur, wenn du es dort bestätigst. Issues sind öffentlich sichtbar. Optional angehängt werden nur Versionsnummern (Uni-Hub, Windows, Electron), die du vorher siehst und abwählen kannst; es gehen nie Daten, Pfade oder Inhalte aus der App mit.
 - Sonst gibt es keine Verbindungen: keine Analyse, keine Absturzberichte, keine automatische Update-Prüfung.
 
 Links aus der App öffnen im Standardbrowser, und zwar nur HTTPS-Adressen.

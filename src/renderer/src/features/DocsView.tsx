@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Alert, App as AntApp, AutoComplete, Button, Collapse, Empty, Form, Input, List, Modal, Result, Select, Space, Spin, Tag, Typography, theme } from 'antd'
+import { Alert, App as AntApp, AutoComplete, Button, Collapse, Empty, Form, Input, List, Modal, Result, Select, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd'
 import {
   DeleteOutlined,
   EditOutlined,
@@ -11,12 +11,15 @@ import {
   FileTextOutlined,
   FileWordOutlined,
   FolderOpenOutlined,
+  FormOutlined,
   InboxOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UploadOutlined
 } from '@ant-design/icons'
 import type { DocPreview, DocSearchHit, DocumentItem } from '@shared/ipc'
+import { useOverlay, useSearchTarget } from './searchStore'
+import { FILE, PAPER, HIGHLIGHT } from '../theme/colors'
 
 const ALL = '__all__'
 const NONE = '__none__'
@@ -25,15 +28,15 @@ const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Er
 const fmtSize = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`)
 
 const ICONS: Record<string, ReactNode> = {
-  pdf: <FilePdfOutlined style={{ color: '#ff4d4f' }} />,
-  docx: <FileWordOutlined style={{ color: '#1677ff' }} />,
-  doc: <FileWordOutlined style={{ color: '#1677ff' }} />,
-  pptx: <FilePptOutlined style={{ color: '#fa8c16' }} />,
-  ppt: <FilePptOutlined style={{ color: '#fa8c16' }} />,
+  pdf: <FilePdfOutlined style={{ color: FILE.pdf }} />,
+  docx: <FileWordOutlined style={{ color: FILE.word }} />,
+  doc: <FileWordOutlined style={{ color: FILE.word }} />,
+  pptx: <FilePptOutlined style={{ color: FILE.ppt }} />,
+  ppt: <FilePptOutlined style={{ color: FILE.ppt }} />,
   txt: <FileTextOutlined />,
   md: <FileTextOutlined />
 }
-const iconFor = (ext: string) => ICONS[ext] ?? (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext) ? <FileImageOutlined style={{ color: '#52c41a' }} /> : <FileOutlined />)
+const iconFor = (ext: string) => ICONS[ext] ?? (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext) ? <FileImageOutlined style={{ color: FILE.image }} /> : <FileOutlined />)
 
 /** Suchtreffer-Auszug mit den Markern U+0001/U+0002 als <mark> darstellen (ohne HTML-Injektion). */
 function Snippet({ text }: { text: string }) {
@@ -92,6 +95,100 @@ function EditModal({ doc, folders, onClose, onSaved }: { doc: DocumentItem | nul
   )
 }
 
+/** Kleines Notizfenster wie im Editor: einfach tippen, gespeichert wird automatisch. */
+function NotesModal({ doc, onClose, onChanged }: { doc: DocumentItem | null; onClose: () => void; onChanged: () => void }) {
+  const { message } = AntApp.useApp()
+  const [text, setText] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const [state, setState] = useState<'saved' | 'dirty' | 'error'>('saved')
+  const latest = useRef({ id: 0, text: '', dirty: false })
+
+  const flush = useCallback(async () => {
+    const { id, text: t, dirty } = latest.current
+    if (!id || !dirty) return
+    latest.current.dirty = false
+    try {
+      await window.uni.docs.setNotes(id, t)
+      setState((s) => (latest.current.dirty ? s : 'saved'))
+      onChanged()
+    } catch (e) {
+      latest.current.dirty = true
+      setState('error')
+      message.error(cleanErr(e))
+    }
+  }, [message, onChanged])
+
+  useEffect(() => {
+    if (!doc) return
+    let alive = true
+    setLoaded(false)
+    setState('saved')
+    latest.current = { id: doc.id, text: '', dirty: false }
+    window.uni.docs.getNotes(doc.id).then(
+      (t) => {
+        if (!alive) return
+        latest.current.text = t
+        setText(t)
+        setLoaded(true)
+      },
+      (e) => message.error(cleanErr(e))
+    )
+    return () => {
+      alive = false
+    }
+  }, [doc, message])
+
+  // Automatisch speichern, kurz nachdem du aufhörst zu tippen
+  useEffect(() => {
+    if (state !== 'dirty') return
+    const t = setTimeout(() => void flush(), 700)
+    return () => clearTimeout(t)
+  }, [text, state, flush])
+
+  const change = (value: string) => {
+    setText(value)
+    latest.current.text = value
+    latest.current.dirty = true
+    setState('dirty')
+  }
+
+  const close = async () => {
+    await flush()
+    onClose()
+  }
+
+  return (
+    <Modal
+      title={doc ? `Notizen – ${doc.title}` : 'Notizen'}
+      open={!!doc}
+      onCancel={close}
+      footer={
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Typography.Text type={state === 'error' ? 'danger' : 'secondary'}>
+            {state === 'saved' ? 'Gespeichert' : state === 'dirty' ? 'Speichert …' : 'Speichern fehlgeschlagen'}
+          </Typography.Text>
+          <Button type="primary" onClick={close}>
+            Schließen
+          </Button>
+        </Space>
+      }
+      width={520}
+      destroyOnHidden
+    >
+      <Input.TextArea
+        autoFocus
+        value={text}
+        disabled={!loaded}
+        onChange={(e) => change(e.target.value)}
+        placeholder="Notizen zu diesem Dokument …"
+        maxLength={100_000}
+        rows={14}
+        style={{ resize: 'vertical', fontFamily: 'Consolas, "Segoe UI", monospace' }}
+      />
+    </Modal>
+  )
+}
+
 function Viewer({ doc, suspended }: { doc: DocumentItem; suspended: boolean }) {
   const { token } = theme.useToken()
   const host = useRef<HTMLDivElement>(null)
@@ -141,8 +238,8 @@ function Viewer({ doc, suspended }: { doc: DocumentItem; suspended: boolean }) {
         <iframe
           title={doc.title}
           sandbox=""
-          srcDoc={`<style>body{font-family:Segoe UI,sans-serif;line-height:1.5;padding:24px;max-width:860px;margin:auto;color:#222;background:#fff}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:4px 8px}</style>${preview.html}`}
-          style={{ flex: 1, border: 0, background: '#fff' }}
+          srcDoc={`<style>body{font-family:Segoe UI,sans-serif;line-height:1.5;padding:24px;max-width:860px;margin:auto;color:${PAPER.text};background:${PAPER.bg}}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid ${PAPER.border};padding:4px 8px}</style>${preview.html}`}
+          style={{ flex: 1, border: 0, background: PAPER.bg }}
         />
       )
     case 'slides':
@@ -184,6 +281,7 @@ export function DocsView() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editing, setEditing] = useState<DocumentItem | null>(null)
   const [deleting, setDeleting] = useState<DocumentItem | null>(null)
+  const [noting, setNoting] = useState<DocumentItem | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [listCollapsed, setListCollapsed] = useState(false)
@@ -269,7 +367,19 @@ export function DocsView() {
     }
   }
 
-  const suspended = !!editing || !!deleting
+  const searching = useOverlay((s) => s.open)
+  const suspended = !!editing || !!deleting || !!noting || searching
+
+  // Treffer der globalen Suche: Dokument auswählen und Filter zurücksetzen
+  const target = useSearchTarget((s) => s.target)
+  const setTarget = useSearchTarget((s) => s.set)
+  useEffect(() => {
+    if (target?.kind !== 'doc') return
+    setQuery('')
+    setFolder(ALL)
+    setSelectedId(target.id)
+    setTarget(null)
+  }, [target, setTarget])
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -331,7 +441,21 @@ export function DocsView() {
             renderItem={(d) => (
               <List.Item
                 onClick={() => setSelectedId(d.id)}
-                style={{ cursor: 'pointer', padding: '10px 16px', background: d.id === selectedId ? 'rgba(22,119,255,0.15)' : undefined }}
+                style={{ cursor: 'pointer', padding: '10px 16px', background: d.id === selectedId ? HIGHLIGHT.selected : undefined }}
+                extra={
+                  <Tooltip title={d.hasNotes ? 'Notizen ansehen' : 'Notiz schreiben'}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<FormOutlined style={{ color: d.hasNotes ? token.colorPrimary : token.colorTextTertiary }} />}
+                      aria-label="Notizen"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setNoting(d)
+                      }}
+                    />
+                  </Tooltip>
+                }
               >
                 <List.Item.Meta
                   avatar={<span style={{ fontSize: 22 }}>{iconFor(d.ext)}</span>}
@@ -383,6 +507,7 @@ export function DocsView() {
         )}
       </div>
 
+      <NotesModal doc={noting} onClose={() => setNoting(null)} onChanged={load} />
       <EditModal doc={editing} folders={folders} onClose={() => setEditing(null)} onSaved={load} />
       <Modal
         title="Dokument löschen?"

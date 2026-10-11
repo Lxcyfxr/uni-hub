@@ -1,6 +1,2 @@
 html, body, #root { height: 100%; margin: 0; }
-/* Passend zum Fenster (Hauptprozess setzt das gespeicherte Design), damit beim Start nichts aufblitzt */
-body { background: #000; }
-@media (prefers-color-scheme: light) {
-  body { background: #fff; }
-}
+/* Hintergrundfarbe kommt aus theme/colors.ts (gesetzt in themeMode.tsx); das Fenster selbst deckt den Start ab. */

@@ -6,6 +6,7 @@ import { clozeNumbers } from '@shared/anki-render'
 import type { AnkiDeck, AnkiNotetype, AnkiPreview } from '@shared/ipc'
 import { CardFrame } from './CardFrame'
 import { cleanErr } from './util'
+import { ON_DARK } from '../../theme/colors'
 
 const LAST_KEY = 'ui.ankiLastNote'
 
@@ -243,10 +244,10 @@ export function NoteEditor({ open, noteId, defaultDeckId, decks, onClose, onSave
               <Alert type="error" showIcon message={previewError} />
             ) : preview ? (
               <div style={{ display: 'flex', gap: 8, height: 170 }}>
-                <div style={{ flex: 1, display: 'flex', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ flex: 1, display: 'flex', border: `1px solid ${ON_DARK.border}`, borderRadius: 6, overflow: 'hidden' }}>
                   <CardFrame html={preview.question} css={preview.css} />
                 </div>
-                <div style={{ flex: 1, display: 'flex', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ flex: 1, display: 'flex', border: `1px solid ${ON_DARK.border}`, borderRadius: 6, overflow: 'hidden' }}>
                   <CardFrame html={preview.answer} css={preview.css} />
                 </div>
               </div>

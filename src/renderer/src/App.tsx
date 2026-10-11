@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import { App as AntApp, Button, Layout, Menu, Result, Spin, Tag, theme } from 'antd'
+import { App as AntApp, Button, Layout, Menu, Result, Spin, theme } from 'antd'
 import {
   AppstoreOutlined,
   BookOutlined,
@@ -11,14 +11,20 @@ import {
   ScheduleOutlined,
   SettingOutlined,
   GlobalOutlined,
-  ClockCircleOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  StepForwardOutlined,
   MedicineBoxOutlined,
   SolutionOutlined
 } from '@ant-design/icons'
 import type { ModuleId } from '@shared/ipc'
 import { WebView } from './features/WebView'
 import { HomeView } from './features/HomeView'
-import { PHASE_LABEL, fmtClock, usePomodoro } from './features/pomodoro'
+import { PHASE_LABEL, fmtClock, phaseMs, usePomodoro } from './features/pomodoro'
+import { SearchPalette } from './features/SearchPalette'
+import { PHASE, ON_DARK } from './theme/colors'
 
 // Die Startseite ist sofort da; alle anderen Bereiche werden erst beim ersten Öffnen geladen.
 // Das hält den Start schnell, weil schwere Komponenten (Tabellen, Kalender, Editoren) nicht vorab ausgewertet werden.
@@ -42,21 +48,38 @@ const NAV: { key: ModuleId; label: string; icon: ReactNode }[] = [
   { key: 'moses', label: 'MOSES', icon: <SolutionOutlined /> }
 ]
 
-/** Laufender Timer in der Sidebar; eigene Komponente, damit nur sie sekündlich neu rendert. */
-function PomodoroBadge({ compact, onClick }: { compact: boolean; onClick: () => void }) {
-  const { status, phase, remainingMs } = usePomodoro()
-  if (status === 'idle') return null
+/** Dauerhafter Timer über den Einstellungen; eigene Komponente, damit nur sie sekündlich neu rendert. */
+function PomodoroDock({ compact, onOpen }: { compact: boolean; onOpen: () => void }) {
+  const p = usePomodoro()
+  const color = PHASE[p.phase]
+  const left = p.status === 'idle' ? phaseMs(p.settings, p.phase) : p.remainingMs
+  const light = { color: ON_DARK.text }
+  const title = `${PHASE_LABEL[p.phase]}${p.status === 'paused' ? ' (pausiert)' : ''} – zum Lernplaner`
+  const playPause =
+    p.status === 'running' ? (
+      <Button type="text" size="small" icon={<PauseCircleOutlined />} onClick={p.pause} aria-label="Pause" title="Pause" style={light} />
+    ) : (
+      <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={p.start} aria-label="Start" title="Start" style={light} />
+    )
   return (
-    <div style={{ padding: compact ? '12px 4px' : 16, textAlign: 'center' }}>
-      <Tag
-        color={phase === 'work' ? 'red' : phase === 'short' ? 'green' : 'blue'}
-        icon={<ClockCircleOutlined />}
-        style={{ cursor: 'pointer', margin: 0, fontVariantNumeric: 'tabular-nums' }}
-        onClick={onClick}
-        title={`${PHASE_LABEL[phase]}${status === 'paused' ? ' (pausiert)' : ''} – zum Lernplaner`}
+    <div style={{ padding: compact ? '8px 0' : '8px 16px', textAlign: 'center', borderTop: `1px solid ${ON_DARK.border}`, borderBottom: `1px solid ${ON_DARK.border}` }}>
+      <div
+        onClick={onOpen}
+        title={title}
+        style={{ cursor: 'pointer', color: p.status === 'idle' ? ON_DARK.textSecondary : color, fontWeight: 600, fontSize: compact ? 12 : 20, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}
       >
-        {fmtClock(remainingMs)}
-      </Tag>
+        {fmtClock(left)}
+      </div>
+      {!compact && <div style={{ fontSize: 11, color: ON_DARK.textMuted }}>{PHASE_LABEL[p.phase]}{p.status === 'paused' ? ' · pausiert' : ''}</div>}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 2, flexDirection: compact ? 'column' : 'row', alignItems: 'center' }}>
+        {playPause}
+        {!compact && (
+          <>
+            <Button type="text" size="small" icon={<ReloadOutlined />} onClick={p.reset} disabled={p.status === 'idle'} aria-label="Zurücksetzen" title="Zurücksetzen" style={p.status === 'idle' ? undefined : light} />
+            <Button type="text" size="small" icon={<StepForwardOutlined />} onClick={p.skip} aria-label="Phase überspringen" title="Phase überspringen" style={light} />
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -64,9 +87,22 @@ function PomodoroBadge({ compact, onClick }: { compact: boolean; onClick: () => 
 export function App() {
   const [mod, setMod] = useState<ModuleId>('home')
   const [collapsed, setCollapsed] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { token } = theme.useToken()
   useEffect(() => {
     usePomodoro.getState().load()
+  }, [])
+
+  // Strg+K öffnet bzw. schließt die globale Suche
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen((o) => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // Benachrichtigungen (z. B. importiertes Anki-Paket) können zu einem Modul springen lassen
@@ -104,15 +140,32 @@ export function App() {
             icon={<MenuOutlined />}
             onClick={toggleCollapsed}
             aria-label={collapsed ? 'Menü ausklappen' : 'Menü einklappen'}
-            style={{ color: 'rgba(255,255,255,0.85)' }}
+            style={{ color: ON_DARK.text }}
           />
-          {!collapsed && <span style={{ fontSize: 18, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap' }}>Uni-Hub</span>}
+          {!collapsed && <span style={{ fontSize: 18, fontWeight: 600, color: ON_DARK.solid, whiteSpace: 'nowrap' }}>Uni-Hub</span>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100% - 56px)' }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <div style={{ padding: collapsed ? '4px 12px 8px' : '4px 16px 8px' }}>
+              <Button
+                block
+                icon={<SearchOutlined />}
+                onClick={() => setSearchOpen(true)}
+                aria-label="Suchen"
+                title="Suchen (Strg+K)"
+                style={{ background: ON_DARK.fill, borderColor: 'transparent', color: ON_DARK.textSecondary, justifyContent: collapsed ? 'center' : 'flex-start' }}
+              >
+                {!collapsed && (
+                  <span style={{ display: 'flex', flex: 1, justifyContent: 'space-between' }}>
+                    <span>Suchen</span>
+                    <span style={{ opacity: 0.6, fontSize: 11 }}>Strg+K</span>
+                  </span>
+                )}
+              </Button>
+            </div>
             <Menu theme="dark" mode="inline" selectedKeys={[mod]} items={NAV} onClick={(e) => setMod(e.key as ModuleId)} />
-            <PomodoroBadge compact={collapsed} onClick={() => setMod('study')} />
           </div>
+          <PomodoroDock compact={collapsed} onOpen={() => setMod('study')} />
           <Menu
             theme="dark"
             mode="inline"
@@ -122,6 +175,7 @@ export function App() {
           />
         </div>
       </Layout.Sider>
+      <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} go={setMod} />
       <Layout.Content style={{ minWidth: 0, overflow: 'auto' }}>
         <Suspense fallback={<Spin size="large" style={{ display: 'block', margin: '20vh auto' }} />}>
         {mod === 'todo' ? (

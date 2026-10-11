@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, Tray } from 'electron'
 import { kvGet, kvSet } from './db'
 import { trayIcon } from './icon'
 import { toast } from './notify'
+import { toggleTodayPopup, trayPopupEnabled } from './trayPopup'
 import type { ModuleId } from '@shared/ipc'
 
 const SETTING_KEY = 'ui.trayOnClose'
@@ -63,5 +64,10 @@ export function setupTray(win: BrowserWindow): void {
       { label: 'Beenden', click: () => app.quit() }
     ])
   )
-  tray.on('click', () => showWindow(win))
+  // Klick: Tages-Popup mit den heutigen Terminen (abschaltbar); Doppelklick öffnet immer das Fenster
+  tray.on('click', (_e, bounds) => {
+    if (!trayPopupEnabled()) return showWindow(win)
+    toggleTodayPopup(bounds, (target) => (target === 'window' ? showWindow(win) : go(target)))
+  })
+  tray.on('double-click', () => showWindow(win))
 }

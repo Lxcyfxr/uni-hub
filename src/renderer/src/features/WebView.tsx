@@ -2,14 +2,18 @@ import { useEffect, useRef } from 'react'
 import { Button, Space, theme } from 'antd'
 import { ArrowLeftOutlined, ArrowRightOutlined, ReloadOutlined } from '@ant-design/icons'
 import type { WebModuleId } from '@shared/ipc'
+import { useOverlay } from './searchStore'
 
 const TOOLBAR_H = 44
 
 export function WebView({ id }: { id: WebModuleId }) {
   const host = useRef<HTMLDivElement>(null)
   const { token } = theme.useToken()
+  // Die native Ansicht liegt über dem DOM und weicht der Suchleiste
+  const overlay = useOverlay((s) => s.open)
 
   useEffect(() => {
+    if (overlay) return
     const el = host.current!
     const sync = () => {
       const r = el.getBoundingClientRect()
@@ -22,7 +26,7 @@ export function WebView({ id }: { id: WebModuleId }) {
       ro.disconnect()
       window.uni.web.hide()
     }
-  }, [id])
+  }, [id, overlay])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

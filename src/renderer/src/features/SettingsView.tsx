@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { App, Button, Card, Divider, List, Modal, Popconfirm, Segmented, Select, Space, Switch, Typography } from 'antd'
+import { App, Button, Card, Checkbox, Divider, Input, List, Modal, Popconfirm, Segmented, Select, Space, Switch, Typography } from 'antd'
 import { BellOutlined, DatabaseOutlined, DeleteOutlined, DisconnectOutlined, FolderOpenOutlined, FileTextOutlined, GithubOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons'
 import type { AppInfo, SessionId } from '@shared/ipc'
 import ownLicense from '../../../../LICENSE?raw'
 import { useThemeMode, type ThemeMode } from './themeMode'
+import { NEUTRAL_FILL } from '../theme/colors'
 
 const SERVICES: { id: SessionId; name: string; hint: string }[] = [
   { id: 'mail', name: 'Exchange', hint: 'Outlook Web (oow.charite.de)' },
@@ -21,6 +22,80 @@ const LEADS = [
   { value: 30, label: '30 Minuten vorher' },
   { value: 60, label: '1 Stunde vorher' }
 ]
+
+const DEADLINE_KEY = 'ui.deadlines'
+const DEADLINE_LEADS = [
+  { value: 0, label: 'Nur heute und überfällig' },
+  { value: 1, label: 'Ab 1 Tag vorher' },
+  { value: 2, label: 'Ab 2 Tagen vorher' },
+  { value: 3, label: 'Ab 3 Tagen vorher' },
+  { value: 7, label: 'Ab 1 Woche vorher' }
+]
+const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: h, label: `${String(h).padStart(2, '0')}:00 Uhr` }))
+const BREAK_KEY = 'ui.breakReminder'
+const BREAK_INTERVALS = [
+  { value: 30, label: 'Nach 30 Minuten' },
+  { value: 45, label: 'Nach 45 Minuten' },
+  { value: 60, label: 'Nach 1 Stunde' },
+  { value: 90, label: 'Nach 90 Minuten' },
+  { value: 120, label: 'Nach 2 Stunden' }
+]
+
+/** Gespeicherte Einstellung (JSON im Schlüssel-Wert-Speicher) mit Standardwerten laden und ändern. */
+function useStoredSetting<T extends object>(key: string, defaults: T): [T, (patch: Partial<T>) => void] {
+  const { message } = App.useApp()
+  const [value, setValue] = useState<T>(defaults)
+  useEffect(() => {
+    window.uni.ui.get(key).then((raw) => {
+      try {
+        setValue({ ...defaults, ...(JSON.parse(raw ?? '{}') as Partial<T>) })
+      } catch {
+        /* Standardwerte */
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  const update = (patch: Partial<T>) => {
+    const next = { ...value, ...patch }
+    setValue(next)
+    window.uni.ui.set(key, JSON.stringify(next)).catch((e) => message.error(String((e as Error).message ?? e)))
+  }
+  return [value, update]
+}
+
+function DeadlineAndBreakReminders() {
+  const [dl, setDl] = useStoredSetting(DEADLINE_KEY, { enabled: true, lead: 1, hour: 8 })
+  const [br, setBr] = useStoredSetting(BREAK_KEY, { enabled: true, interval: 90 })
+  return (
+    <>
+      <Divider style={{ margin: 0 }} />
+      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+        <div>
+          <Typography.Text strong>Fristen</Typography.Text>
+          <div>
+            <Typography.Text type="secondary">Einmal täglich eine Meldung zu Aufgaben mit Fälligkeitsdatum, zum Beispiel Abgaben und Anmeldefristen.</Typography.Text>
+          </div>
+        </div>
+        <Switch checked={dl.enabled} onChange={(v) => setDl({ enabled: v })} />
+      </Space>
+      <Space wrap>
+        <Select style={{ width: 220 }} disabled={!dl.enabled} value={dl.lead} options={DEADLINE_LEADS} onChange={(v) => setDl({ lead: v })} />
+        <Select style={{ width: 130 }} disabled={!dl.enabled} value={dl.hour} options={HOURS} onChange={(v) => setDl({ hour: v })} />
+      </Space>
+      <Divider style={{ margin: 0 }} />
+      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+        <div>
+          <Typography.Text strong>Lernpause</Typography.Text>
+          <div>
+            <Typography.Text type="secondary">Erinnert dich an eine Pause, wenn du länger am Stück in Uni-Hub arbeitest. Eine Unterbrechung von 5 Minuten setzt den Zähler zurück.</Typography.Text>
+          </div>
+        </div>
+        <Switch checked={br.enabled} onChange={(v) => setBr({ enabled: v })} />
+      </Space>
+      <Select style={{ width: 220 }} disabled={!br.enabled} value={br.interval} options={BREAK_INTERVALS} onChange={(v) => setBr({ interval: v })} />
+    </>
+  )
+}
 
 function Reminders() {
   const { message } = App.useApp()
@@ -71,6 +146,7 @@ function Reminders() {
             Test senden
           </Button>
         </Space>
+        <DeadlineAndBreakReminders />
         <Typography.Text type="secondary">
           Erinnerungen kommen nur, solange Uni-Hub läuft. Siehst du keine Benachrichtigung, prüfe in Windows „Nicht stören“ bzw. den Fokus-Assistenten.
         </Typography.Text>
@@ -79,14 +155,62 @@ function Reminders() {
   )
 }
 
+const ISSUE_PLACEHOLDER = 'Was ist passiert? Was hast du erwartet? Wie lässt sich das Problem nachstellen?'
+
+function ReportIssue() {
+  const { message } = App.useApp()
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [withInfo, setWithInfo] = useState(true)
+  const [info, setInfo] = useState('')
+
+  useEffect(() => {
+    window.uni.app.diagnostics().then(setInfo).catch(() => {})
+  }, [])
+
+  const body = [text.trim(), withInfo && info ? `---\n${info}` : ''].filter(Boolean).join('\n\n')
+
+  const open = () =>
+    window.uni.app.reportIssue(title, body).then(
+      () => message.info('GitHub wurde im Browser geöffnet. Dort kannst du die Meldung prüfen und absenden.'),
+      (e) => message.error(String((e as Error).message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
+    )
+
+  return (
+    <Card title="Problem melden" style={{ marginBottom: 16 }}>
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Typography.Text type="secondary">
+          Beschreibe kurz, was nicht funktioniert oder was du dir wünschst. Ein Klick öffnet GitHub im Browser mit deinem Text als neuem Issue.
+          Abgeschickt wird erst dort, mit einem kostenlosen GitHub-Konto. Issues sind öffentlich sichtbar: schreibe daher keine persönlichen Daten,
+          Passwörter oder Inhalte aus deinen Terminen und Dokumenten hinein.
+        </Typography.Text>
+        <Input placeholder="Titel" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input.TextArea rows={5} maxLength={4000} placeholder={ISSUE_PLACEHOLDER} value={text} onChange={(e) => setText(e.target.value)} />
+        <Checkbox checked={withInfo} onChange={(e) => setWithInfo(e.target.checked)}>
+          Technische Angaben anhängen (Versionen von Uni-Hub und Windows, keine persönlichen Daten)
+        </Checkbox>
+        {withInfo && info && (
+          <pre style={{ margin: 0, padding: 8, fontSize: 12, borderRadius: 6, background: NEUTRAL_FILL, whiteSpace: 'pre-wrap' }}>{info}</pre>
+        )}
+        <Button type="primary" icon={<GithubOutlined />} disabled={!title.trim()} onClick={open}>
+          Auf GitHub melden
+        </Button>
+      </Space>
+    </Card>
+  )
+}
+
 const TRAY_KEY = 'ui.trayOnClose'
+const POPUP_KEY = 'ui.trayPopup'
 
 function Background() {
   const { message } = App.useApp()
   const [onClose, setOnClose] = useState(true)
+  const [popup, setPopup] = useState(true)
   const [auto, setAuto] = useState<{ supported: boolean; enabled: boolean; blocked: boolean } | null>(null)
   useEffect(() => {
     window.uni.ui.get(TRAY_KEY).then((v) => setOnClose(v !== '0'))
+    window.uni.ui.get(POPUP_KEY).then((v) => setPopup(v !== '0'))
     window.uni.app.getAutostart().then(setAuto).catch(() => {})
   }, [])
 
@@ -116,6 +240,25 @@ function Background() {
           onChange={(v) => {
             setOnClose(v)
             window.uni.ui.set(TRAY_KEY, v ? '1' : '0').catch(() => {})
+          }}
+        />
+      </Space>
+      <Divider style={{ margin: '16px 0' }} />
+      <Space style={{ width: '100%', justifyContent: 'space-between' }} align="start">
+        <div>
+          <Typography.Text strong>Heutige Termine am Symbol anzeigen</Typography.Text>
+          <div>
+            <Typography.Text type="secondary">
+              Ein Klick auf das Symbol im Infobereich zeigt die Termine und fälligen Aufgaben von heute. Ein Doppelklick öffnet das Fenster. Ausgeschaltet öffnet
+              schon ein Klick das Fenster.
+            </Typography.Text>
+          </div>
+        </div>
+        <Switch
+          checked={popup}
+          onChange={(v) => {
+            setPopup(v)
+            window.uni.ui.set(POPUP_KEY, v ? '1' : '0').catch(() => {})
           }}
         />
       </Space>
@@ -311,6 +454,7 @@ export function SettingsView() {
       </Card>
       <Reminders />
       <Background />
+      <ReportIssue />
       <Card title="Sitzungen widerrufen">
         <Typography.Paragraph type="secondary">
           Löscht Cookies, gespeicherte Anmeldedaten und Cache des Dienstes. Hilfreich, wenn eine Anmeldung hängen bleibt. Danach

@@ -12,6 +12,7 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Popover,
   Progress,
   Segmented,
   Select,
@@ -34,12 +35,14 @@ import {
   StepForwardOutlined
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
-import type { StudyStats, StudySubject } from '@shared/ipc'
+import type { PlanBlock, StudyPlan, StudyStats, StudySubject, StudyTopic } from '@shared/ipc'
+import { DIFFICULTY_LABEL, EFFORT_LABEL, baseMinutes } from '@shared/studyPlan'
 import { PHASE_LABEL, fmtClock, phaseMs, usePomodoro, type Phase } from './pomodoro'
+import { PHASE, ON_DARK, DEFAULT_SOURCE_COLOR, SUCCESS } from '../theme/colors'
 
 const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 const DAY = 'YYYY-MM-DD'
-const PHASE_COLOR: Record<Phase, string> = { work: '#ff4d4f', short: '#52c41a', long: '#1677ff' }
+const PHASE_COLOR: Record<Phase, string> = PHASE
 
 const fmtMinutes = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim() : `${m} min`)
 const pct = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0)
@@ -163,7 +166,7 @@ function PomodoroCard({ subjects, stats }: { subjects: StudySubject[]; stats: St
       </Space>
       <Space size={6} aria-label={`Runde ${Math.min(filled + 1, p.settings.cycles)} von ${p.settings.cycles}`}>
         {Array.from({ length: p.settings.cycles }, (_, i) => (
-          <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < filled ? PHASE_COLOR.work : 'rgba(255,255,255,0.18)' }} />
+          <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i < filled ? PHASE_COLOR.work : ON_DARK.dot }} />
         ))}
       </Space>
       <Select
@@ -185,6 +188,203 @@ function PomodoroCard({ subjects, stats }: { subjects: StudySubject[]; stats: St
   )
 }
 
+/* ---------- Prüfungsplan ---------- */
+
+const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+/** Anzeige beginnt am Montag; die gespeicherten Werte beginnen am Sonntag */
+const slot = (i: number) => (i + 1) % 7
+
+const dayLabel = (date: string) => {
+  const d = dayjs(date).startOf('day')
+  const diff = d.diff(dayjs().startOf('day'), 'day')
+  return diff === 0 ? 'Heute' : diff === 1 ? 'Morgen' : d.format('dd, DD.MM.')
+}
+
+function PlanMinutesModal({ open, minutes, onClose, onSaved }: { open: boolean; minutes: number[]; onClose: () => void; onSaved: () => void }) {
+  const { message } = AntApp.useApp()
+  const [draft, setDraft] = useState(minutes)
+  useEffect(() => {
+    if (open) setDraft(minutes)
+  }, [open, minutes])
+
+  const save = async () => {
+    try {
+      await window.uni.study.setPlanMinutes(draft)
+      onSaved()
+      onClose()
+    } catch (e) {
+      message.error(cleanErr(e))
+    }
+  }
+
+  return (
+    <Modal title="Lernzeit pro Wochentag" open={open} onCancel={onClose} onOk={save} okText="Speichern" cancelText="Abbrechen" destroyOnHidden>
+      <Typography.Paragraph type="secondary">
+        So viel Zeit stehst du dem Plan an jedem Wochentag zur Verfügung. Mit 0 Minuten bleibt ein Tag frei.
+      </Typography.Paragraph>
+      <Form layout="horizontal" labelCol={{ span: 10 }} wrapperCol={{ span: 14 }}>
+        {WEEKDAYS.map((name, i) => (
+          <Form.Item key={name} label={name} style={{ marginBottom: 8 }}>
+            <InputNumber
+              min={0}
+              max={1440}
+              step={15}
+              value={draft[slot(i)]}
+              suffix="min"
+              onChange={(v) => v != null && setDraft((d) => d.map((x, k) => (k === slot(i) ? Math.round(v) : x)))}
+            />
+          </Form.Item>
+        ))}
+      </Form>
+    </Modal>
+  )
+}
+
+function PlanCard({ plan, onChanged }: { plan: StudyPlan; onChanged: () => void }) {
+  const startFor = usePomodoro((s) => s.startFor)
+  const [minutesOpen, setMinutesOpen] = useState(false)
+  const today = dayjs().format(DAY)
+  const upcoming = useMemo(() => {
+    const days = [...new Set(plan.blocks.map((b) => b.date))].filter((d) => d >= today).slice(0, 3)
+    return days.map((d) => ({ date: d, blocks: plan.blocks.filter((b) => b.date === d) }))
+  }, [plan.blocks, today])
+
+  return (
+    <Card
+      title="Prüfungsplan"
+      style={{ marginBottom: 24 }}
+      extra={
+        <Button type="text" icon={<SettingOutlined />} onClick={() => setMinutesOpen(true)}>
+          Lernzeit
+        </Button>
+      }
+    >
+      {plan.subjects.length === 0 ? (
+        <Typography.Text type="secondary">
+          Trage bei einem Fach den Prüfungstermin ein und lege Umfang und Schwierigkeit der Themen fest. Dann verteilt Uni-Hub die offenen Themen auf deine freien Lerntage und passt den Plan automatisch an, wenn etwas liegen bleibt.
+        </Typography.Text>
+      ) : (
+        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            {plan.subjects.map((s) => {
+              const short = s.missingMinutes > 0
+              return (
+                <div key={s.subjectId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Typography.Text strong ellipsis style={{ display: 'block' }}>
+                      {s.subject}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {s.openTopics} {s.openTopics === 1 ? 'Thema' : 'Themen'} offen · Rest {fmtMinutes(s.neededMinutes)} · {s.daysLeft} {s.daysLeft === 1 ? 'Tag' : 'Tage'} bis zur Prüfung
+                    </Typography.Text>
+                  </div>
+                  {short ? (
+                    <Tooltip title={`Es fehlen ${fmtMinutes(s.missingMinutes)}. Mit etwa ${s.extraPerDay} min mehr pro Tag (Lernzeit anpassen) passt es.`}>
+                      <Tag color="red" style={{ margin: 0 }}>Es fehlen {fmtMinutes(s.missingMinutes)}</Tag>
+                    </Tooltip>
+                  ) : (
+                    <Tag color="green" style={{ margin: 0 }}>Im Plan</Tag>
+                  )}
+                </div>
+              )
+            })}
+            <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 8 }}>
+              {plan.factor
+                ? `Dein Tempo: ${plan.factor.value.toLocaleString('de-DE')}× der Schätzung (aus ${plan.factor.samples} erledigten Themen). Der Plan rechnet damit.`
+                : 'Nach drei erledigten Themen mit Lernzeit passt sich der Plan an dein Tempo an.'}
+            </Typography.Text>
+          </div>
+
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              ALS NÄCHSTES
+            </Typography.Text>
+            {upcoming.length === 0 ? (
+              <div style={{ padding: '8px 0' }}>
+                <Typography.Text type="secondary">Nichts mehr zu planen. Alle Themen sind erledigt oder eingeplant.</Typography.Text>
+              </div>
+            ) : (
+              upcoming.map((d) => (
+                <div key={d.date} style={{ margin: '6px 0 10px' }}>
+                  <Typography.Text strong>{dayLabel(d.date)}</Typography.Text>
+                  {d.blocks.map((b) => (
+                    <div key={`${b.topicId}-${b.date}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
+                      <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: b.color, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Typography.Text ellipsis style={{ display: 'block' }}>
+                          {b.title}
+                        </Typography.Text>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {b.subject} · {fmtMinutes(b.minutes)}
+                        </Typography.Text>
+                      </div>
+                      <Tooltip title="Pomodoro für dieses Thema starten">
+                        <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => startFor({ subjectId: b.subjectId, topicId: b.topicId, label: b.title })} />
+                      </Tooltip>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+      <PlanMinutesModal open={minutesOpen} minutes={plan.weekdayMinutes} onClose={() => setMinutesOpen(false)} onSaved={onChanged} />
+    </Card>
+  )
+}
+
+/** Umfang und Schwierigkeit eines Themas: Tag mit Kurzform, Klick öffnet die Auswahl. */
+function TopicSize({ topic, factor, onChange }: { topic: StudyTopic; factor: number; onChange: (effort: number, difficulty: number) => void }) {
+  const estimate = Math.round((baseMinutes(topic.effort, topic.difficulty) * factor) / 5) * 5
+  const content = (
+    <Space direction="vertical" size={10}>
+      <div>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>Umfang</Typography.Text>
+        <div>
+          <Segmented
+            size="small"
+            value={topic.effort}
+            onChange={(v) => onChange(Number(v), topic.difficulty)}
+            options={[
+              { value: 1, label: 'S klein' },
+              { value: 2, label: 'M mittel' },
+              { value: 3, label: 'L groß' }
+            ]}
+          />
+        </div>
+      </div>
+      <div>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>Schwierigkeit</Typography.Text>
+        <div>
+          <Segmented
+            size="small"
+            value={topic.difficulty}
+            onChange={(v) => onChange(topic.effort, Number(v))}
+            options={[
+              { value: 1, label: 'leicht' },
+              { value: 2, label: 'mittel' },
+              { value: 3, label: 'schwer' }
+            ]}
+          />
+        </div>
+      </div>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        Geschätzter Aufwand: {fmtMinutes(estimate)}
+        {topic.loggedMinutes > 0 && ` · davon ${fmtMinutes(topic.loggedMinutes)} gelernt`}
+      </Typography.Text>
+    </Space>
+  )
+  return (
+    <Popover trigger="click" content={content} title="Aufwand dieses Themas" placement="left">
+      <Tag style={{ margin: 0, cursor: 'pointer' }}>
+        {EFFORT_LABEL[topic.effort]} · {DIFFICULTY_LABEL[topic.difficulty]}
+      </Tag>
+    </Popover>
+  )
+}
+
 /* ---------- Fächer & Themen ---------- */
 
 interface SubjectForm {
@@ -200,7 +400,7 @@ function SubjectModal({ open, subject, onClose, onSaved }: { open: boolean; subj
 
   useEffect(() => {
     if (!open) return
-    form.setFieldsValue({ name: subject?.name ?? '', color: subject?.color ?? '#1677ff', exam: subject?.examDate ? dayjs(subject.examDate) : null })
+    form.setFieldsValue({ name: subject?.name ?? '', color: subject?.color ?? DEFAULT_SOURCE_COLOR, exam: subject?.examDate ? dayjs(subject.examDate) : null })
   }, [open, subject, form])
 
   const save = async () => {
@@ -239,10 +439,14 @@ function SubjectModal({ open, subject, onClose, onSaved }: { open: boolean; subj
 
 function SubjectCard({
   subject,
+  blocks,
+  factor,
   onChange,
   onEdit
 }: {
   subject: StudySubject
+  blocks: PlanBlock[]
+  factor: number
   onChange: () => void
   onEdit: () => void
 }) {
@@ -316,6 +520,14 @@ function SubjectCard({
             >
               {t.title}
             </Typography.Text>
+            {!t.done && blocks.some((b) => b.topicId === t.id) && (
+              <Tooltip title="Geplanter Lerntag laut Prüfungsplan">
+                <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                  {dayLabel(blocks.find((b) => b.topicId === t.id)!.date)}
+                </Typography.Text>
+              </Tooltip>
+            )}
+            {!t.done && <TopicSize topic={t} factor={factor} onChange={(effort, difficulty) => run(() => window.uni.study.setTopicSize(t.id, effort, difficulty))} />}
             {!t.done && (
               <Tooltip title="Pomodoro für dieses Thema starten">
                 <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => startFor({ subjectId: subject.id, topicId: t.id, label: t.title })} />
@@ -347,12 +559,14 @@ export function StudyView() {
   const [subjects, setSubjects] = useState<StudySubject[]>([])
   const [stats, setStats] = useState<StudyStats>({ todayMinutes: 0, weekMinutes: 0, daily: [], streak: 0 })
   const [loaded, setLoaded] = useState(false)
+  const [plan, setPlan] = useState<StudyPlan | null>(null)
   const [modal, setModal] = useState<{ open: boolean; subject: StudySubject | null }>({ open: false, subject: null })
 
   const load = useCallback(async () => {
-    const [s, st] = await Promise.all([window.uni.study.list(), window.uni.study.stats()])
+    const [s, st, pl] = await Promise.all([window.uni.study.list(), window.uni.study.stats(), window.uni.study.plan()])
     setSubjects(s)
     setStats(st)
+    setPlan(pl)
     setLoaded(true)
   }, [])
 
@@ -383,7 +597,7 @@ export function StudyView() {
         <Progress
           percent={overall}
           size={['100%', 18]}
-          strokeColor={{ from: token.colorPrimary, to: '#52c41a' }}
+          strokeColor={{ from: token.colorPrimary, to: SUCCESS }}
           status={overall === 100 ? 'success' : 'active'}
         />
         <Typography.Text type="secondary">
@@ -391,10 +605,12 @@ export function StudyView() {
         </Typography.Text>
       </Card>
 
+      {plan && <PlanCard plan={plan} onChanged={load} />}
+
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 480px', minWidth: 0, display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))' }}>
           {subjects.map((s) => (
-            <SubjectCard key={s.id} subject={s} onChange={load} onEdit={() => setModal({ open: true, subject: s })} />
+            <SubjectCard key={s.id} subject={s} blocks={plan?.blocks.filter((b) => b.subjectId === s.id) ?? []} factor={plan?.factor?.value ?? 1} onChange={load} onEdit={() => setModal({ open: true, subject: s })} />
           ))}
           {loaded && subjects.length === 0 && (
             <Card style={{ gridColumn: '1 / -1' }}>

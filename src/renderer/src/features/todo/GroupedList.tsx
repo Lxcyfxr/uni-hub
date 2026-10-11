@@ -2,6 +2,7 @@ import { Badge, Button, Card, Checkbox, Dropdown, Empty, Popconfirm, Space, Tag,
 import { ArrowDownOutlined, CalendarOutlined, DeleteOutlined, EditOutlined, FlagFilled } from '@ant-design/icons'
 import type { Todo, TodoCategory, TodoStatus } from '@shared/ipc'
 import { STATUSES, STATUS_META, dueInfo, sortTodos } from './helpers'
+import { TODO, ON_DARK } from '../../theme/colors'
 
 interface Props {
   todos: Todo[]
@@ -14,7 +15,7 @@ interface Props {
 function Row({ todo, onMove, onEdit, onRemove }: { todo: Todo; onMove: Props['onMove']; onEdit: Props['onEdit']; onRemove: Props['onRemove'] }) {
   const due = dueInfo(todo.due, todo.done)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px', borderBottom: `1px solid ${ON_DARK.borderSoft}` }}>
       <Checkbox checked={todo.done} onChange={() => onMove(todo.id, todo.done ? 'open' : 'done')} />
       <Typography.Text
         delete={todo.done}
@@ -24,7 +25,7 @@ function Row({ todo, onMove, onEdit, onRemove }: { todo: Todo; onMove: Props['on
       >
         {todo.title}
       </Typography.Text>
-      {todo.priority === 2 && <FlagFilled style={{ color: '#ff4d4f' }} />}
+      {todo.priority === 2 && <FlagFilled style={{ color: TODO.priorityHigh }} />}
       {todo.priority === 0 && <ArrowDownOutlined style={{ opacity: 0.45 }} />}
       {due && (
         <Tag color={due.color} icon={<CalendarOutlined />} style={{ margin: 0 }}>
@@ -72,7 +73,7 @@ export function GroupedList({ todos, categories, onMove, onEdit, onRemove }: Pro
           <Card
             key={g.key}
             size="small"
-            title={<Badge color={g.color ?? '#8c8c8c'} text={<Typography.Text strong>{g.name}</Typography.Text>} />}
+            title={<Badge color={g.color ?? TODO.fallbackGroup} text={<Typography.Text strong>{g.name}</Typography.Text>} />}
             extra={<Typography.Text type="secondary">{open} offen · {g.items.length - open} erledigt</Typography.Text>}
           >
             {g.items.map((t) => (

@@ -91,6 +91,8 @@ export interface DocumentItem {
   addedAt: string
   /** false = kein durchsuchbarer Text (z. B. gescanntes PDF, Bild) */
   hasText: boolean
+  /** true = zum Dokument gibt es eine Notiz */
+  hasNotes: boolean
 }
 
 export interface DocUpdate {
@@ -116,6 +118,50 @@ export interface StudyTopic {
   subjectId: number
   title: string
   done: boolean
+  /** Umfang: 1 = klein (S), 2 = mittel (M), 3 = groß (L) */
+  effort: 1 | 2 | 3
+  /** Schwierigkeit: 1 = leicht, 2 = mittel, 3 = schwer */
+  difficulty: 1 | 2 | 3
+  /** bisher auf dieses Thema gebuchte Lernminuten */
+  loggedMinutes: number
+}
+
+/** Ein Lernblock im Prüfungsplan: dieses Thema an diesem Tag für so viele Minuten */
+export interface PlanBlock {
+  date: string
+  subjectId: number
+  subject: string
+  color: string
+  topicId: number
+  title: string
+  minutes: number
+}
+
+export interface SubjectPlan {
+  subjectId: number
+  subject: string
+  color: string
+  examDate: string
+  /** Tage von heute bis zum Tag vor der Prüfung */
+  daysLeft: number
+  openTopics: number
+  /** Restaufwand der offenen Themen */
+  neededMinutes: number
+  /** freie Lernzeit bis zur Prüfung, bevor dieses Fach eingeplant wurde */
+  availableMinutes: number
+  /** Minuten, die nicht mehr in die verfügbare Zeit passen */
+  missingMinutes: number
+  /** so viele Minuten mehr pro Tag würden reichen */
+  extraPerDay: number
+}
+
+export interface StudyPlan {
+  blocks: PlanBlock[]
+  subjects: SubjectPlan[]
+  /** an deine Lerngeschwindigkeit angepasster Faktor; null, solange zu wenig Daten vorliegen */
+  factor: { value: number; samples: number } | null
+  /** Lernminuten je Wochentag, Sonntag zuerst */
+  weekdayMinutes: number[]
 }
 
 export interface StudySubject {
@@ -254,6 +300,19 @@ export interface AnkiDownloadEvent {
   error?: string
 }
 
+export type SearchKind = 'todo' | 'event' | 'subject' | 'topic' | 'card' | 'doc'
+
+export interface SearchResult {
+  kind: SearchKind
+  id: number
+  title: string
+  subtitle: string | null
+  /** Bereich, der beim Anklicken geöffnet wird */
+  module: ModuleId
+  /** Nur Termine: Tag 'YYYY-MM-DD' */
+  date?: string
+}
+
 export interface AppInfo {
   version: string
   packaged: boolean
@@ -300,6 +359,8 @@ export interface UniApi {
     /** Absoluter Pfad einer per Drag&Drop abgelegten Datei */
     pathForFile(file: File): string
     update(id: number, patch: DocUpdate): Promise<void>
+    getNotes(id: number): Promise<string>
+    setNotes(id: number, text: string): Promise<void>
     remove(id: number): Promise<void>
     search(query: string): Promise<DocSearchHit[]>
     preview(id: number): Promise<DocPreview>
@@ -321,6 +382,12 @@ export interface UniApi {
     renameTopic(id: number, title: string): Promise<void>
     toggleTopic(id: number): Promise<void>
     removeTopic(id: number): Promise<void>
+    /** Umfang und Schwierigkeit eines Themas (je 1 bis 3) */
+    setTopicSize(id: number, effort: number, difficulty: number): Promise<void>
+    /** Prüfungsplan: Lernblöcke pro Tag, Zustand je Fach und Einstellungen */
+    plan(): Promise<StudyPlan>
+    /** Lernminuten je Wochentag (7 Werte, Sonntag zuerst) */
+    setPlanMinutes(weekdayMinutes: number[]): Promise<void>
     logSession(subjectId: number | null, topicId: number | null, minutes: number): Promise<void>
   }
   sessions: {
@@ -347,6 +414,14 @@ export interface UniApi {
     setAutostart(enabled: boolean): Promise<void>
     /** Zeigt eine Windows-Benachrichtigung; ein Klick öffnet optional ein Modul (z. B. 'study') */
     notify(opts: { title: string; body: string; silent?: boolean; navigate?: 'home' | 'todo' | 'study' | 'calendar' | 'docs' | 'anki' }): Promise<void>
+    /** Technische Angaben (Versionen) für Fehlermeldungen, ohne persönliche Daten */
+    diagnostics(): Promise<string>
+    /** Öffnet GitHub im Browser mit einem vorausgefüllten Issue; abgeschickt wird dort vom Nutzer */
+    reportIssue(title: string, body: string): Promise<void>
+  }
+  search: {
+    /** Durchsucht Aufgaben, Termine, Lernplan, Karteikarten und Dokumente (inkl. Notizen) */
+    global(query: string): Promise<SearchResult[]>
   }
   anki: {
     decks(): Promise<AnkiDeck[]>

@@ -3,10 +3,9 @@
 import { createRequire } from 'node:module'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import fuses from '@electron/fuses'
+import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses'
 
 const require = createRequire(import.meta.url)
-const { getCurrentFuseWire, FuseV1Options } = fuses
 // Im Programmcode stehen die Fuses als Zeichen '0' (aus) und '1' (an)
 const FuseState = { DISABLE: 48, ENABLE: 49 }
 const asar = require('@electron/asar')
