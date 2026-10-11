@@ -25,7 +25,7 @@ function setLinuxAutostart(enabled: boolean): void {
   const file = linuxEntry()
   if (!enabled) return rmSync(file, { force: true })
   // Bei einem AppImage startet APPIMAGE die App, nicht das entpackte Programm; Sonderzeichen für die Exec-Zeile maskieren
-  const exec = (process.env['APPIMAGE'] || process.execPath).replace(/["`$\\]/g, (c) => '\\' + c)
+  const exec = (process.env['APPIMAGE'] || process.execPath).replace(/%/g, '%%').replace(/["`$\\]/g, (c) => '\\' + c)
   mkdirSync(join(file, '..'), { recursive: true })
   const lines = ['[Desktop Entry]', 'Type=Application', 'Name=Uni-Hub', `Exec="${exec}" ${HIDDEN_ARG}`, 'Terminal=false', 'X-GNOME-Autostart-enabled=true']
   writeFileSync(file, lines.join('\n') + '\n')

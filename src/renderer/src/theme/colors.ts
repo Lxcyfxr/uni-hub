@@ -6,13 +6,17 @@ export type Mode = 'light' | 'dark'
 
 const light = {
   bg: '#f3f6fa',
+  base: '#ffffff',
   surface: '#ffffff',
+  elevated: '#ffffff',
   border: '#d6dfea',
   text: '#10223a',
   textSecondary: '#4a5d78',
   primary: '#0b4f9c',
   primaryHover: '#0a417f',
   primaryBg: '#e4eef9',
+  link: '#0b4f9c',
+  menuSelected: '#0b4f9c',
   accent: '#0c8f9b',
   success: '#1f8a5b',
   warning: '#c77d0a',
@@ -25,22 +29,26 @@ const light = {
 }
 
 const dark: typeof light = {
-  bg: '#0a1220',
-  surface: '#111c2e',
-  border: '#263852',
-  text: '#e7edf6',
-  textSecondary: '#9fb0c7',
-  primary: '#5fa2ea',
-  primaryHover: '#80b6f0',
-  primaryBg: '#12294a',
-  accent: '#3cc0cc',
-  success: '#4cc38a',
-  warning: '#f0b04a',
-  danger: '#f0727c',
-  magenta: '#d878c6',
-  purple: '#9c86f0',
-  grey: '#9aa8ba',
-  sidebar: '#0d1626',
+  bg: '#13171c',
+  base: '#13171c',
+  surface: '#1a1f26',
+  elevated: '#212730',
+  border: '#2a313b',
+  text: '#e6e9ee',
+  textSecondary: '#a0a9b6',
+  primary: '#3b7fd0',
+  primaryHover: '#5590da',
+  primaryBg: '#1f3350',
+  link: '#6aa6ee',
+  menuSelected: '#22314a',
+  accent: '#35aab4',
+  success: '#3fb27f',
+  warning: '#e0a23c',
+  danger: '#e5666f',
+  magenta: '#c46bb3',
+  purple: '#8e7ae0',
+  grey: '#8b95a3',
+  sidebar: '#0d1014',
   paper: '#ffffff'
 }
 
@@ -138,7 +146,7 @@ export const FILE = { pdf: C.red, word: C.blue, ppt: C.orange, image: C.green } 
 export const PAPER = { bg: '#fff', text: '#222', border: '#bbb' } as const
 
 /** Anki-Kartenansicht (iframe, immer dunkel; CSS-Variablen reichen nicht in iframes) */
-export const CARD = { bg: '#111c2e', text: '#e7edf6', link: '#5fa2ea' } as const
+export const CARD = { bg: '#1a1f26', text: '#e6e9ee', link: '#6aa6ee' } as const
 
 /** Startseite: Fortschrittsring */
 export const PROGRESS_RING = { '0%': BRAND, '100%': SUCCESS }

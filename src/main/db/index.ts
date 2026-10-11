@@ -143,7 +143,14 @@ const MIGRATIONS = [
    UPDATE todos SET completed_at = created_at WHERE done = 1;
    INSERT INTO todo_categories (name) SELECT DISTINCT course FROM todos WHERE course IS NOT NULL AND TRIM(course) != '';
    UPDATE todos SET category_id = (SELECT id FROM todo_categories WHERE name = todos.course) WHERE course IS NOT NULL;`,
-  `ALTER TABLE documents ADD COLUMN notes TEXT NOT NULL DEFAULT '';`
+  `ALTER TABLE documents ADD COLUMN notes TEXT NOT NULL DEFAULT '';`,
+  `ALTER TABLE study_topics ADD COLUMN effort INTEGER NOT NULL DEFAULT 2;
+   ALTER TABLE study_topics ADD COLUMN difficulty INTEGER NOT NULL DEFAULT 2;`,
+  // Fremdschlüssel ohne Index: Kaskaden (Karten/Stapel löschen, Fach löschen, Kalender neu abrufen) und die Summen in der Lernplan-Liste scannten bisher die ganze Tabelle
+  `CREATE INDEX IF NOT EXISTS idx_anki_revlog_card ON anki_revlog(card_id);
+   CREATE INDEX IF NOT EXISTS idx_study_sessions_subject ON study_sessions(subject_id);
+   CREATE INDEX IF NOT EXISTS idx_study_sessions_topic ON study_sessions(topic_id);
+   CREATE INDEX IF NOT EXISTS idx_calendar_events_source ON calendar_events(source_id);`
 ]
 
 let locked = false

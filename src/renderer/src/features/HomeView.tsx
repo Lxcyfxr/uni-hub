@@ -12,7 +12,7 @@ import {
   RightOutlined
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
-import type { AnkiDeck, CalendarEvent, CalendarSource, ModuleId, StudyStats, StudySubject, Todo, TodoCategory } from '@shared/ipc'
+import type { AnkiDeck, CalendarEvent, CalendarSource, ModuleId, StudyPlan, StudyStats, StudySubject, Todo, TodoCategory } from '@shared/ipc'
 import { fmtClock, PHASE_LABEL, phaseMs, usePomodoro } from './pomodoro'
 import { C, PHASE, ANKI, ON_DARK, HIGHLIGHT, PROGRESS_RING, BRAND, tint } from '../theme/colors'
 
@@ -28,6 +28,7 @@ interface Data {
   subjects: StudySubject[]
   stats: StudyStats
   decks: AnkiDeck[]
+  plan: StudyPlan
 }
 
 function occursOn(e: CalendarEvent, day: Dayjs): boolean {
@@ -123,10 +124,12 @@ function TodayCard({ now, data, go, onDone }: { now: Dayjs; data: Data; go: (m: 
   const nextId = events.find((e) => !e.allDay && dayjs(e.start).isAfter(now))?.id
   const today = now.format(DAY)
   const tasks = data.todos.filter((t) => !t.done && t.due && t.due <= today)
+  const startFor = usePomodoro((s) => s.startFor)
+  const learn = data.plan.blocks.filter((b) => b.date === today)
 
   return (
     <Panel title="Heute" icon={<CalendarOutlined />} onMore={() => go('calendar')} extra={<Typography.Text type="secondary">{now.format('dddd, D. MMMM')}</Typography.Text>}>
-      {events.length === 0 && tasks.length === 0 ? (
+      {events.length === 0 && tasks.length === 0 && learn.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Heute stehen keine Termine oder fälligen Aufgaben an" />
       ) : (
         <>
@@ -182,6 +185,30 @@ function TodayCard({ now, data, go, onDone }: { now: Dayjs; data: Data; go: (m: 
                   </Typography.Text>
                   {t.due! < today && <Tag color="red" style={{ margin: 0 }}>überfällig</Tag>}
                   {t.status === 'doing' && <Tag color="blue" style={{ margin: 0 }}>in Bearbeitung</Tag>}
+                </div>
+              ))}
+            </>
+          )}
+
+          {learn.length > 0 && (
+            <>
+              <Typography.Text type="secondary" style={{ display: 'block', margin: '12px 0 4px', fontSize: 12 }}>
+                LERNPLAN HEUTE
+              </Typography.Text>
+              {learn.map((b) => (
+                <div key={b.topicId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px' }}>
+                  <Badge color={b.color} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Typography.Text ellipsis style={{ display: 'block' }}>
+                      {b.title}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {b.subject} · {fmtMin(b.minutes)}
+                    </Typography.Text>
+                  </div>
+                  <Tooltip title="Pomodoro für dieses Thema starten">
+                    <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => startFor({ subjectId: b.subjectId, topicId: b.topicId, label: b.title })} />
+                  </Tooltip>
                 </div>
               ))}
             </>
@@ -409,16 +436,17 @@ export function HomeView({ go }: { go: (m: ModuleId) => void }) {
 
   const load = useCallback(async () => {
     const start = dayjs().startOf('day')
-    const [events, sources, todos, categories, subjects, stats, decks] = await Promise.all([
+    const [events, sources, todos, categories, subjects, stats, decks, plan] = await Promise.all([
       window.uni.calendar.events(start.toISOString(), start.add(8, 'day').toISOString()),
       window.uni.calendar.sources(),
       window.uni.todos.list(),
       window.uni.todos.categories(),
       window.uni.study.list(),
       window.uni.study.stats(),
-      window.uni.anki.decks()
+      window.uni.anki.decks(),
+      window.uni.study.plan()
     ])
-    setData({ events, sources, todos, categories, subjects, stats, decks })
+    setData({ events, sources, todos, categories, subjects, stats, decks, plan })
     setNow(dayjs())
   }, [])
 

@@ -4,6 +4,7 @@ vi.mock('electron', () => ({ BrowserWindow: class {}, nativeTheme: {}, screen: {
 vi.mock('../src/main/db', () => ({ kvGet: () => null }))
 vi.mock('../src/main/calendar/ical', () => ({ listSources: () => [], events: () => [] }))
 vi.mock('../src/main/todos/store', () => ({ list: () => [] }))
+vi.mock('../src/main/study/store', () => ({ plan: () => ({ blocks: [] }) }))
 vi.mock('../src/main/security', () => ({ SECURE_WEB_PREFERENCES: {} }))
 
 import { renderTodayHtml, todaysEntries } from '../src/main/trayPopup'
@@ -53,6 +54,12 @@ describe('renderTodayHtml', () => {
     expect(html).toContain('Überfällig')
     expect(html).not.toContain('Fertig')
     expect(html).not.toContain('Später')
+  })
+  it('zeigt den Lernplan von heute und gilt damit nicht als leerer Tag', () => {
+    const html = renderTodayHtml([], [], now, false, [{ date: '2026-10-10', subjectId: 1, subject: 'Anatomie', color: '#1677ff', topicId: 5, title: 'Herz <b>', minutes: 90 }])
+    expect(html).toContain('Lernen: Herz &lt;b&gt;')
+    expect(html).toContain('Anatomie · 90 Min.')
+    expect(html).not.toContain('Heute steht nichts an.')
   })
   it('meldet einen leeren Tag', () => {
     expect(renderTodayHtml([], [], now, false)).toContain('Heute steht nichts an.')

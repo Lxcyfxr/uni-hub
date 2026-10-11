@@ -1,5 +1,6 @@
-import { getDb } from '../db'
-import type { StudyStats, StudySubject, StudyTopic } from '@shared/ipc'
+import { getDb, kvGet, kvSet } from '../db'
+import { DEFAULT_WEEKDAY_MINUTES, buildPlan } from './plan'
+import type { StudyPlan, StudyStats, StudySubject, StudyTopic } from '@shared/ipc'
 
 interface SubjectRow {
   id: number
@@ -13,9 +14,14 @@ interface TopicRow {
   subject_id: number
   title: string
   done: number
+  effort: number
+  difficulty: number
+  logged: number
 }
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+const clampSize = (n: number): 1 | 2 | 3 => (n === 1 || n === 3 ? n : 2)
+const PLAN_KEY = 'study.planMinutes'
 
 function checkSubject(name: string, color: string, exam: string | null): { name: string; color: string; exam: string | null } {
   const n = name.trim()
@@ -34,11 +40,25 @@ export function list(): StudySubject[] {
        FROM study_subjects s ORDER BY s.id`
     )
     .all() as unknown as SubjectRow[]
-  const topics = db.prepare('SELECT id, subject_id, title, done FROM study_topics ORDER BY position, id').all() as unknown as TopicRow[]
+  const topics = db
+    .prepare(
+      `SELECT t.id, t.subject_id, t.title, t.done, t.effort, t.difficulty,
+              COALESCE((SELECT SUM(minutes) FROM study_sessions WHERE topic_id = t.id), 0) AS logged
+       FROM study_topics t ORDER BY t.position, t.id`
+    )
+    .all() as unknown as TopicRow[]
   const bySubject = new Map<number, StudyTopic[]>()
   for (const t of topics) {
     const arr = bySubject.get(t.subject_id) ?? []
-    arr.push({ id: t.id, subjectId: t.subject_id, title: t.title, done: !!t.done })
+    arr.push({
+      id: t.id,
+      subjectId: t.subject_id,
+      title: t.title,
+      done: !!t.done,
+      effort: clampSize(t.effort),
+      difficulty: clampSize(t.difficulty),
+      loggedMinutes: Number(t.logged)
+    })
     bySubject.set(t.subject_id, arr)
   }
   return subjects.map((s) => ({
@@ -134,4 +154,46 @@ export function logSession(subjectId: number | null, topicId: number | null, min
   const m = Math.round(minutes)
   if (!Number.isFinite(m) || m < 1 || m > 600) return
   getDb().prepare('INSERT INTO study_sessions (subject_id,topic_id,minutes,finished_at) VALUES (?,?,?,?)').run(subjectId, topicId, m, new Date().toISOString())
+}
+
+export function setTopicSize(id: number, effort: number, difficulty: number): void {
+  getDb().prepare('UPDATE study_topics SET effort = ?, difficulty = ? WHERE id = ?').run(clampSize(effort), clampSize(difficulty), id)
+}
+
+export function planMinutes(): number[] {
+  try {
+    const v = JSON.parse(kvGet(PLAN_KEY) ?? 'null') as unknown
+    if (Array.isArray(v) && v.length === 7 && v.every((n) => Number.isInteger(n) && n >= 0 && n <= 1440)) return v as number[]
+  } catch {
+    /* Standardwerte */
+  }
+  return DEFAULT_WEEKDAY_MINUTES
+}
+
+export function setPlanMinutes(minutes: number[]): void {
+  if (!Array.isArray(minutes) || minutes.length !== 7 || !minutes.every((n) => Number.isInteger(n) && n >= 0 && n <= 1440)) throw new Error('Ungültige Lernzeiten')
+  kvSet(PLAN_KEY, JSON.stringify(minutes))
+}
+
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** Prüfungsplan aus Fächern, Themen, bisheriger Lernzeit und den Lernzeiten je Wochentag. */
+export function plan(now = new Date()): StudyPlan {
+  const subjects = list()
+  const today = localDay(now)
+  const logged = getDb()
+    .prepare("SELECT COALESCE(SUM(minutes), 0) AS m FROM study_sessions WHERE date(finished_at, 'localtime') = ?")
+    .get(today) as unknown as { m: number }
+  return buildPlan({
+    subjects: subjects.map((s) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+      examDate: s.examDate,
+      topics: s.topics.map((t) => ({ id: t.id, title: t.title, done: t.done, effort: t.effort, difficulty: t.difficulty, loggedMinutes: t.loggedMinutes }))
+    })),
+    weekdayMinutes: planMinutes(),
+    today,
+    loggedToday: Number(logged.m)
+  })
 }

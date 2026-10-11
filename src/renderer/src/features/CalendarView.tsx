@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, App as AntApp, Badge, Button, Calendar, ColorPicker, DatePicker, Drawer, Empty, Form, Input, List, Modal, Popconfirm, Segmented, Space, Switch, Tag, theme, Typography } from 'antd'
-import { DeleteOutlined, DownloadOutlined, EditOutlined, LeftOutlined, PlusOutlined, ReloadOutlined, RightOutlined, SettingOutlined, UploadOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DownloadOutlined, EditOutlined, LeftOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined, RightOutlined, SettingOutlined, UploadOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
-import type { CalendarEvent, CalendarEventInput, CalendarSource, Todo } from '@shared/ipc'
+import type { CalendarEvent, CalendarEventInput, CalendarSource, PlanBlock, Todo } from '@shared/ipc'
 import { useSearchTarget } from './searchStore'
+import { usePomodoro } from './pomodoro'
 import { TODO, DEFAULT_SOURCE_COLOR, NOW_LINE, ON_DARK } from '../theme/colors'
 
 const cleanErr = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
@@ -17,6 +18,8 @@ interface DayItem {
   time: string
   location?: string | null
   isTodo?: boolean
+  /** Lernblock aus dem Prüfungsplan */
+  plan?: PlanBlock
   event?: CalendarEvent
 }
 
@@ -83,10 +86,11 @@ function layoutTimed(day: Dayjs, events: CalendarEvent[]): Seg[] {
   return out
 }
 
-function TimeGrid({ days, events, todos, colors, selected, onSelect, onEdit }: {
+function TimeGrid({ days, events, todos, plan, colors, selected, onSelect, onEdit }: {
   days: Dayjs[]
   events: CalendarEvent[]
   todos: Todo[]
+  plan: PlanBlock[]
   colors: Map<number, string>
   selected: Dayjs
   onSelect: (d: Dayjs) => void
@@ -121,9 +125,10 @@ function TimeGrid({ days, events, todos, colors, selected, onSelect, onEdit }: {
         {days.map((d) => {
           const key = d.format(DAY)
           const isToday = d.isSame(now, 'day')
-          const chips = [
+          const chips: { k: string; title: string; color: string; ev?: CalendarEvent; plan?: boolean }[] = [
             ...events.filter((e) => e.allDay && daysOf(e).includes(key)).map((e) => ({ k: `e${e.id}`, title: e.title, color: colorOf(e), ev: e })),
-            ...todos.filter((t) => t.due === key && !t.done).map((t) => ({ k: `t${t.id}`, title: t.title, color: TODO_COLOR, ev: undefined as CalendarEvent | undefined }))
+            ...todos.filter((t) => t.due === key && !t.done).map((t) => ({ k: `t${t.id}`, title: t.title, color: TODO_COLOR, ev: undefined as CalendarEvent | undefined })),
+            ...plan.filter((b) => b.date === key).map((b) => ({ k: `p${b.topicId}`, title: `Lernen: ${b.title} · ${b.minutes} min`, color: b.color, plan: true }))
           ]
           return (
             <div key={key} style={{ flex: 1, minWidth: 0, borderLeft: line, padding: '4px 4px 6px' }}>
@@ -138,7 +143,7 @@ function TimeGrid({ days, events, todos, colors, selected, onSelect, onEdit }: {
                   key={c.k}
                   title={c.title}
                   onClick={() => c.ev && onEdit(c.ev)}
-                  style={{ marginTop: 2, padding: '0 6px', fontSize: 12, borderRadius: 4, background: c.color, color: ON_DARK.solid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: c.ev ? 'pointer' : 'default' }}
+                  style={{ marginTop: 2, padding: '0 6px', fontSize: 12, borderRadius: 4, background: c.color, color: ON_DARK.solid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: c.ev ? 'pointer' : 'default', border: c.plan ? '1px dashed rgba(255,255,255,0.8)' : undefined, opacity: c.plan ? 0.85 : 1 }}
                 >
                   {c.title}
                 </div>
@@ -563,15 +568,20 @@ export function CalendarView() {
   }[view]
   const fromIso = range[0].toISOString()
   const toIso = range[1].toISOString()
+  const [planBlocks, setPlanBlocks] = useState<PlanBlock[]>([])
+  const startFor = usePomodoro((st) => st.startFor)
+  const sessionsVersion = usePomodoro((st) => st.sessionsVersion)
   const load = useCallback(async () => {
-    const [s, e, t] = await Promise.all([
+    const [s, e, t, pl] = await Promise.all([
       window.uni.calendar.sources(),
       window.uni.calendar.events(fromIso, toIso),
-      window.uni.todos.list()
+      window.uni.todos.list(),
+      window.uni.study.plan()
     ])
     setSources(s)
     setEvents(e)
     setTodos(t)
+    setPlanBlocks(pl.blocks)
   }, [fromIso, toIso])
 
   const step = (delta: number) => {
@@ -593,7 +603,8 @@ export function CalendarView() {
 
   useEffect(() => {
     load()
-  }, [load])
+    // nach einer gebuchten Lernrunde ändert sich der Plan
+  }, [load, sessionsVersion])
 
   const colors = useMemo(() => new Map(sources.map((s) => [s.id, s.color])), [sources])
 
@@ -624,9 +635,13 @@ export function CalendarView() {
     for (const t of todos) {
       if (t.due && !t.done) push(t.due, { key: `t${t.id}`, title: t.title, color: TODO_COLOR, time: 'To-Do', isTodo: true })
     }
-    for (const list of map.values()) list.sort((a, b) => (a.time === 'ganztägig' || a.isTodo ? '' : a.time).localeCompare(b.time === 'ganztägig' || b.isTodo ? '' : b.time))
+    for (const b of planBlocks) {
+      push(b.date, { key: `p${b.topicId}-${b.date}`, title: `Lernen: ${b.title}`, color: b.color, time: `${b.minutes} min`, location: b.subject, plan: b })
+    }
+    const sortKey = (i: DayItem) => (i.time === 'ganztägig' || i.isTodo || i.plan ? '' : i.time)
+    for (const list of map.values()) list.sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
     return map
-  }, [events, todos, colors])
+  }, [events, todos, planBlocks, colors])
 
   const dayItems = byDay.get(selected.format(DAY)) ?? []
 
@@ -672,6 +687,7 @@ export function CalendarView() {
               days={view === 'week' ? weekDays : [value.startOf('day')]}
               events={events}
               todos={todos}
+              plan={planBlocks}
               colors={colors}
               selected={selected}
               onSelect={(d) => {
@@ -723,7 +739,7 @@ export function CalendarView() {
                           marginBottom: 2,
                           padding: '0 6px',
                           borderRadius: 4,
-                          borderLeft: `3px solid ${i.color}`,
+                          borderLeft: `3px ${i.plan ? 'dashed' : 'solid'} ${i.color}`,
                           background: `${i.color}26`,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -770,7 +786,7 @@ export function CalendarView() {
                       style={{ display: 'flex', gap: 10, padding: '8px 10px', borderRadius: 6, borderLeft: `4px solid ${i.color}`, background: `${i.color}1f`, cursor: clickable ? 'pointer' : 'default' }}
                     >
                       <div style={{ width: 78, flexShrink: 0, fontSize: 12, fontVariantNumeric: 'tabular-nums', opacity: 0.75 }}>{i.time}</div>
-                      <div style={{ minWidth: 0 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 500, overflowWrap: 'anywhere' }}>{i.title}</div>
                         {i.location && (
                           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -778,6 +794,15 @@ export function CalendarView() {
                           </Typography.Text>
                         )}
                       </div>
+                      {i.plan && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<PlayCircleOutlined />}
+                          title="Pomodoro für dieses Thema starten"
+                          onClick={() => startFor({ subjectId: i.plan!.subjectId, topicId: i.plan!.topicId, label: i.plan!.title })}
+                        />
+                      )}
                     </div>
                   )
                 })}

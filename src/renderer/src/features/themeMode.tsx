@@ -43,15 +43,17 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
             colorSuccess: p.success,
             colorWarning: p.warning,
             colorError: p.danger,
-            colorLink: p.primary,
-            colorBgBase: p.surface,
+            colorLink: p.link,
+            colorBgBase: p.base,
+            colorBgContainer: p.surface,
+            colorBgElevated: p.elevated,
             colorBgLayout: p.bg,
             colorTextBase: p.text,
             colorBorder: p.border
           },
           components: {
             Layout: { siderBg: p.sidebar, bodyBg: p.bg },
-            Menu: { darkItemBg: p.sidebar, darkSubMenuItemBg: p.sidebar, darkItemSelectedBg: p.primary }
+            Menu: { darkItemBg: p.sidebar, darkSubMenuItemBg: p.sidebar, darkItemSelectedBg: p.menuSelected }
           }
         }}
       >

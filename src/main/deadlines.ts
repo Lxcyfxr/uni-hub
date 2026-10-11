@@ -1,6 +1,7 @@
 import { BrowserWindow, powerMonitor } from 'electron'
 import { getDb, kvGet, kvSet } from './db'
 import { toast } from './notify'
+import { plan as studyPlan } from './study/store'
 
 /* ---------- Fristen (Aufgaben mit Fälligkeitsdatum) ---------- */
 
@@ -36,6 +37,17 @@ export const dayString = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 const dayDiff = (from: string, to: string): number => Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86_400_000)
+
+/** Eine Zeile zum heutigen Lernplan, z. B. „Lernplan heute: 2 Std. 30 Min. (Anatomie, Biochemie)“; null ohne Blöcke. */
+export function describeLearnToday(blocks: { subject: string; minutes: number }[]): string | null {
+  if (!blocks.length) return null
+  const total = blocks.reduce((n, b) => n + b.minutes, 0)
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  const time = [h ? `${h} Std.` : '', m ? `${m} Min.` : ''].filter(Boolean).join(' ')
+  const subjects = [...new Set(blocks.map((b) => b.subject))].slice(0, 3).join(', ')
+  return `Lernplan heute: ${time} (${subjects})`
+}
 
 export interface DeadlineRow {
   title: string
@@ -73,8 +85,15 @@ export function checkDeadlines(win: BrowserWindow, now = new Date()): number {
     .all(dayString(last)) as unknown as DeadlineRow[]
   kvSet(LAST_DAY_KEY, today)
   const msg = describeDeadlines(rows, today)
-  if (!msg) return 0
-  toast(win, { ...msg, navigate: 'todo' })
+  // Lernplan von heute gehört zur Morgenmeldung, auch wenn keine Frist ansteht
+  const learn = studyPlan(now).blocks.filter((b) => b.date === today)
+  const learnLine = describeLearnToday(learn)
+  if (!msg && !learnLine) return 0
+  toast(win, {
+    title: msg?.title ?? 'Lernplan für heute',
+    body: [msg?.body, learnLine].filter(Boolean).join('\n'),
+    navigate: msg ? 'todo' : 'study'
+  })
   return rows.length
 }
 

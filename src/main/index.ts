@@ -56,7 +56,7 @@ function createWindow(): BrowserWindow {
     height: state.height,
     x: state.x,
     y: state.y,
-    backgroundColor: theme === 'light' ? '#f3f6fa' : '#0a1220',
+    backgroundColor: theme === 'light' ? '#f3f6fa' : '#13171c',
     icon: windowIcon(),
     // Erst zeigen, wenn das erste Bild fertig ist (siehe unten) – kein leeres Fenster beim Start
     show: false,
@@ -140,6 +140,9 @@ function registerIpc(win: BrowserWindow): void {
   handle('study:renameTopic', (_e, id: number, title: string) => study.renameTopic(v.id(id), v.str(title, 300)))
   handle('study:toggleTopic', (_e, id: number) => study.toggleTopic(v.id(id)))
   handle('study:removeTopic', (_e, id: number) => study.removeTopic(v.id(id)))
+  handle('study:setTopicSize', (_e, id: number, effort: number, difficulty: number) => study.setTopicSize(v.id(id), v.int(effort, 1, 3, 'Umfang'), v.int(difficulty, 1, 3, 'Schwierigkeit')))
+  handle('study:plan', () => study.plan())
+  handle('study:setPlanMinutes', (_e, m: number[]) => study.setPlanMinutes(m))
   handle('study:logSession', (_e, s: number | null, t: number | null, minutes: number) => study.logSession(v.optId(s), v.optId(t), v.int(minutes, 1, 600, 'Minuten')))
 
   const sendProgress = (p: AnkiProgress) => {

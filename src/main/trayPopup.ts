@@ -2,8 +2,9 @@ import { BrowserWindow, nativeTheme, screen, type Rectangle } from 'electron'
 import { kvGet } from './db'
 import { listSources, events } from './calendar/ical'
 import { list as listTodos } from './todos/store'
+import { plan as studyPlan } from './study/store'
 import { SECURE_WEB_PREFERENCES } from './security'
-import type { CalendarEvent, ModuleId, Todo } from '@shared/ipc'
+import type { CalendarEvent, ModuleId, PlanBlock, Todo } from '@shared/ipc'
 
 /** Standard: ein Klick auf das Symbol im Infobereich zeigt die heutigen Termine. */
 export const trayPopupEnabled = (): boolean => kvGet('ui.trayPopup') !== '0'
@@ -50,7 +51,7 @@ export function todaysEntries(evs: CalendarEvent[], colors: Map<number, string>,
 const safeColor = (c: string) => (/^#[0-9a-fA-F]{6}$/.test(c) ? c : '#1677ff')
 
 /** Statisches HTML für das Popup; Aktionen sind Links auf uni-action://…, es läuft kein Skript. */
-export function renderTodayHtml(entries: TodayEntry[], todos: Todo[], now: Date, dark: boolean): string {
+export function renderTodayHtml(entries: TodayEntry[], todos: Todo[], now: Date, dark: boolean, learn: PlanBlock[] = []): string {
   const today = dayString(now)
   const nowMs = now.getTime()
   const nextIdx = entries.findIndex((e) => !e.allDay && e.start > nowMs)
@@ -74,6 +75,13 @@ export function renderTodayHtml(entries: TodayEntry[], todos: Todo[], now: Date,
     )
     .join('')
   const more = due.length > 6 ? `<div class="empty">… und ${due.length - 6} weitere</div>` : ''
+
+  const learnRows = learn
+    .map(
+      (b) =>
+        `<a class="row" href="uni-action://study"><span class="bar" style="background:${safeColor(b.color)}"></span><span class="body"><span class="title">Lernen: ${esc(b.title)}</span><span class="meta">${esc(b.subject)} · ${b.minutes} Min.</span></span></a>`
+    )
+    .join('')
 
   const heading = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
   const colors = dark
@@ -109,7 +117,8 @@ h2{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mute
 <div class="list">
 ${entries.length ? `<h2>Termine</h2>${rows}` : ''}
 ${due.length ? `<h2>Aufgaben</h2>${todoRows}${more}` : ''}
-${!entries.length && !due.length ? '<div class="empty">Heute steht nichts an.</div>' : ''}
+${learn.length ? `<h2>Lernplan</h2>${learnRows}` : ''}
+${!entries.length && !due.length && !learn.length ? '<div class="empty">Heute steht nichts an.</div>' : ''}
 </div>
 <div class="foot"><a href="uni-action://calendar">Kalender</a><a href="uni-action://open">Uni-Hub öffnen</a></div>
 </body></html>`
@@ -137,7 +146,8 @@ function build(): string {
   const to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2)
   const colors = new Map(listSources().map((s) => [s.id, s.color]))
   const entries = todaysEntries(events(from.toISOString(), to.toISOString()), colors, now)
-  return renderTodayHtml(entries, listTodos(), now, nativeTheme.shouldUseDarkColors)
+  const learn = studyPlan(now).blocks.filter((b) => b.date === dayString(now))
+  return renderTodayHtml(entries, listTodos(), now, nativeTheme.shouldUseDarkColors, learn)
 }
 
 /** Zeigt bzw. schließt das Tages-Popup am Symbol im Infobereich. */
@@ -169,7 +179,7 @@ export function toggleTodayPopup(trayBounds: Rectangle, open: (module: ModuleId 
     wc.on('will-navigate', (event, url) => {
       event.preventDefault()
       const action = url.startsWith('uni-action://') ? url.slice('uni-action://'.length).replace(/\/$/, '') : ''
-      if (action === 'calendar' || action === 'todo') open(action)
+      if (action === 'calendar' || action === 'todo' || action === 'study') open(action)
       else if (action === 'open') open('window')
       else return
       popup?.hide()

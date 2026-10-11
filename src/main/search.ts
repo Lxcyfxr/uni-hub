@@ -112,7 +112,7 @@ export function globalSearch(query: string): SearchResult[] {
     .forEach((t) => out.push({ kind: 'topic', id: t.id, title: t.title, subtitle: `${t.subject}${t.done ? ' · erledigt' : ''}`, module: 'study' }))
 
   // Karteikarten: Sortierfeld (Vorderseite) und Tags
-  const notes = db.prepare('SELECT id, sort_text, tags FROM anki_notes').all() as unknown as { id: number; sort_text: string; tags: string }[]
+  const notes = db.prepare('SELECT id, sort_text, tags FROM anki_notes').iterate() as unknown as Iterable<{ id: number; sort_text: string; tags: string }>
   const deckOf = db.prepare('SELECT d.name FROM anki_cards c JOIN anki_decks d ON d.id = c.deck_id WHERE c.note_id = ? LIMIT 1')
   let cards = 0
   for (const n of notes) {
@@ -124,7 +124,7 @@ export function globalSearch(query: string): SearchResult[] {
   }
 
   // Dokumente: Volltext (Titel und Inhalt) sowie eigene Notizen
-  const titles = new Map(docs.list().map((d) => [d.id, d.title]))
+  const titles = new Map((db.prepare('SELECT id, title FROM documents').all() as unknown as { id: number; title: string }[]).map((d) => [d.id, d.title]))
   const docIds = new Set<number>()
   const addDoc = (id: number, subtitle: string | null) => {
     const title = titles.get(id)

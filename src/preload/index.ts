@@ -60,6 +60,9 @@ const api: UniApi = {
     renameTopic: (id, title) => ipcRenderer.invoke('study:renameTopic', id, title),
     toggleTopic: (id) => ipcRenderer.invoke('study:toggleTopic', id),
     removeTopic: (id) => ipcRenderer.invoke('study:removeTopic', id),
+    setTopicSize: (id, effort, difficulty) => ipcRenderer.invoke('study:setTopicSize', id, effort, difficulty),
+    plan: () => ipcRenderer.invoke('study:plan'),
+    setPlanMinutes: (m) => ipcRenderer.invoke('study:setPlanMinutes', m),
     logSession: (subjectId, topicId, minutes) => ipcRenderer.invoke('study:logSession', subjectId, topicId, minutes)
   },
   sessions: {

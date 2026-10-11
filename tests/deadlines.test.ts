@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ BrowserWindow: class {}, powerMonitor: {} }))
 vi.mock('../src/main/db', () => ({ getDb: () => ({}), kvGet: () => null, kvSet: () => {} }))
+vi.mock('../src/main/study/store', () => ({ plan: () => ({ blocks: [] }) }))
 vi.mock('../src/main/notify', () => ({ toast: () => true }))
 
-import { advanceBreak, dayString, describeDeadlines } from '../src/main/deadlines'
+import { advanceBreak, dayString, describeDeadlines, describeLearnToday } from '../src/main/deadlines'
 
 describe('describeDeadlines', () => {
   it('liefert null ohne Fristen', () => {
@@ -51,5 +52,20 @@ describe('advanceBreak', () => {
     let s = { activeMs: 10 * 60_000, lastActive: t0, lastTick: t0 }
     s = advanceBreak(s, false, t0 + 2 * 60_000)
     expect(s.activeMs).toBe(10 * 60_000)
+  })
+})
+
+describe('describeLearnToday', () => {
+  it('liefert null ohne Lernblöcke', () => {
+    expect(describeLearnToday([])).toBeNull()
+  })
+  it('fasst Zeit und Fächer zusammen', () => {
+    expect(
+      describeLearnToday([
+        { subject: 'Anatomie', minutes: 90 },
+        { subject: 'Anatomie', minutes: 60 },
+        { subject: 'Biochemie', minutes: 30 }
+      ])
+    ).toBe('Lernplan heute: 3 Std. (Anatomie, Biochemie)')
   })
 })
