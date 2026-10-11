@@ -1,10 +1,8 @@
 name: Build macOS
 
-# Läuft nur auf Abruf oder bei einem Versions-Tag, damit keine macOS-Minuten verbraucht werden
+# Nur auf Abruf (Test mit Selbsttest); Releases baut release.yml bei einem Tag
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
 
 permissions:
   contents: read

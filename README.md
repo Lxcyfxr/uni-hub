@@ -109,6 +109,24 @@ Ausführlich: [PRIVACY.md](PRIVACY.md) (Datenflüsse, Löschen, Export) und [SEC
 - Anki: keine getippten Antworten, keine gefilterten Stapel; Exporte sind auf 1 GB Medien begrenzt. Die Kompatibilität mit echten Anki-Paketen ist mit nachgebauten Testdateien geprüft, nicht mit dem Original-Anki.
 - Gescannte PDFs sind nicht durchsuchbar (keine Texterkennung).
 
+## Branches und Releases
+
+- **`main`** enthält nur veröffentlichte Stände. Jeder Merge nach `main` ist ein Release.
+- **`0.3.x`, `0.4.x`, …** sind die Entwicklungsbranches, je eine pro Minor-Version. Alle Patch-Releases (`0.3.0`, `0.3.1`, …) entstehen auf derselben Branch.
+- **Tags** (`0.3.0`, `0.3.1`, `0.3.2-beta.1`, ohne „v“) markieren jede Veröffentlichung.
+
+Ablauf eines Releases:
+
+```bash
+# 1. Version in package.json auf der Entwicklungsbranch setzen und committen (z. B. 0.3.0)
+git switch main
+git merge --no-ff 0.3.x
+git tag 0.3.0
+git push origin main --tags     # startet .github/workflows/release.yml
+```
+
+Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit `RELEASE-NOTES.md` an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
+
 ## Lizenz
 
 Uni-Hub steht unter der [MIT-Lizenz](LICENSE). Die Lizenzen der gebündelten Open-Source-Pakete stehen in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md); sie werden mit `npm run licenses` neu erzeugt (läuft automatisch bei `npm run dist`), sind in der App unter *Einstellungen → Über Uni-Hub* einsehbar und liegen im Installer. Nach dem Hinzufügen neuer Dependencies die Datei neu erzeugen und mitcommitten.
