@@ -105,6 +105,7 @@ Ausführlich: [PRIVACY.md](PRIVACY.md) (Datenflüsse, Löschen, Export) und [SEC
 ## Bekannte Grenzen
 
 - **Nicht signiert:** Der Installer trägt kein Code-Signing-Zertifikat. Windows SmartScreen zeigt beim ersten Start „Unbekannter Herausgeber“ (Weitere Informationen → Trotzdem ausführen).
+- **macOS nur ad-hoc signiert, nicht notarisiert:** Die `.dmg` ist ohne Apple-Zertifikat signiert (nötig, damit sie auf Apple Silicon überhaupt startet). Beim ersten Öffnen: Rechtsklick → *Öffnen* oder *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*.
 - **Keine automatischen Updates:** Neue Versionen werden per neuem Installer eingespielt (Daten bleiben erhalten).
 - Anki: keine getippten Antworten, keine gefilterten Stapel; Exporte sind auf 1 GB Medien begrenzt. Die Kompatibilität mit echten Anki-Paketen ist mit nachgebauten Testdateien geprüft, nicht mit dem Original-Anki.
 - Gescannte PDFs sind nicht durchsuchbar (keine Texterkennung).
