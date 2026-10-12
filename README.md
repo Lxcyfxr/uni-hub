@@ -125,7 +125,7 @@ git tag 0.3.0
 git push origin main --tags     # startet .github/workflows/release.yml
 ```
 
-Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit `RELEASE-NOTES.md` an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
+Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit automatisch generierten Release-Notes an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
 
 ## Lizenz
 

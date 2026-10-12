@@ -75,4 +75,4 @@ jobs:
         run: |
           FLAGS=""
           case "$TAG" in *-*) FLAGS="--prerelease" ;; esac
-          gh release create "$TAG" dist/* --title "Uni-Hub $TAG" --notes-file RELEASE-NOTES.md $FLAGS
+          gh release create "$TAG" dist/* --title "Uni-Hub $TAG" --generate-notes $FLAGS
