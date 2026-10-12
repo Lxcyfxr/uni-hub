@@ -105,6 +105,7 @@ Ausführlich: [PRIVACY.md](PRIVACY.md) (Datenflüsse, Löschen, Export) und [SEC
 ## Bekannte Grenzen
 
 - **Nicht signiert:** Der Installer trägt kein Code-Signing-Zertifikat. Windows SmartScreen zeigt beim ersten Start „Unbekannter Herausgeber“ (Weitere Informationen → Trotzdem ausführen).
+- **macOS nur ad-hoc signiert, nicht notarisiert:** Die `.dmg` ist ohne Apple-Zertifikat signiert (nötig, damit sie auf Apple Silicon überhaupt startet). Beim ersten Öffnen: Rechtsklick → *Öffnen* oder *Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen*.
 - **Keine automatischen Updates:** Neue Versionen werden per neuem Installer eingespielt (Daten bleiben erhalten).
 - Anki: keine getippten Antworten, keine gefilterten Stapel; Exporte sind auf 1 GB Medien begrenzt. Die Kompatibilität mit echten Anki-Paketen ist mit nachgebauten Testdateien geprüft, nicht mit dem Original-Anki.
 - Gescannte PDFs sind nicht durchsuchbar (keine Texterkennung).
@@ -125,7 +126,7 @@ git tag 0.3.0
 git push origin main --tags     # startet .github/workflows/release.yml
 ```
 
-Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit `RELEASE-NOTES.md` an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
+Der Workflow prüft, dass `package.json` zum Tag passt, baut Windows (.exe), macOS (.dmg) und Linux (.AppImage, .deb), und legt ein GitHub-Release mit automatisch generierten Release-Notes an (Tags mit `-`, z. B. `-beta.1`, als Vorabversion). Für die nächste Minor-Version: `git switch -c 0.4.x main`.
 
 ## Lizenz
 

@@ -12,6 +12,7 @@
     "maintainer": "Lxcyfxr <noreply@users.noreply.github.com>",
     "synopsis": "Studienorganisation: Kalender, To-Do, Lernplaner, Anki und Dokumente",
     "executableName": "uni-hub",
+    "syncDesktopName": true,
     "desktop": {
       "entry": {
         "Name": "Uni-Hub",

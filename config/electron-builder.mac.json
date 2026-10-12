@@ -3,6 +3,8 @@
   "artifactName": "Uni-Hub-${version}-${arch}.${ext}",
   "mac": {
     "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+    "identity": "-",
+    "hardenedRuntime": false,
     "icon": "build/icon-1024.png",
     "category": "public.app-category.education"
   },
