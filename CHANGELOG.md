@@ -2,6 +2,15 @@
 
 Alle nennenswerten Änderungen an Uni-Hub. Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach [SemVer](https://semver.org/lang/de/).
 
+## [0.2.1] – 2026-10-12
+
+### Geändert
+- Die Liste der Drittanbieter-Lizenzen wird aus dem Lockfile erzeugt und ist damit auf jedem Betriebssystem gleich; sie enthält jetzt die Plattform-Binärpakete von Windows, Linux und macOS.
+- Release-Notes für GitHub-Releases werden automatisch generiert (`RELEASE-NOTES.md` entfällt).
+
+### Behoben
+- Linux: Fenster werden dem Starter (`uni-hub.desktop`) zugeordnet (`desktopName`), z. B. im Dock.
+
 ## [0.2.0] – 2026-10-11
 
 ### Hinzugefügt

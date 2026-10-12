@@ -1,6 +1,7 @@
 {
   "name": "uni-hub",
-  "version": "0.2.0",
+  "version": "0.2.1",
+  "desktopName": "uni-hub.desktop",
   "description": "Uni-Hub: Studienorganisation mit Kalender, To-Do, Lernplaner, Anki, Doc-Hub und Web-Diensten",
   "main": "./out/main/index.js",
   "private": true,
