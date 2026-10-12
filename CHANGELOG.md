@@ -2,6 +2,11 @@
 
 Alle nennenswerten Änderungen an Uni-Hub. Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach [SemVer](https://semver.org/lang/de/).
 
+## [0.2.2] – 2026-10-12
+
+### Behoben
+- **macOS (Apple Silicon):** Die `.dmg` wird jetzt ad-hoc signiert. Vorher fehlte die Signatur, weil ohne Zertifikat nicht signiert wurde; macOS meldete die App auf M-Chip-Macs deshalb als „beschädigt“.
+
 ## [0.2.1] – 2026-10-12
 
 ### Geändert
