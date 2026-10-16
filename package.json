@@ -44,7 +44,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "antd": "^6.6.5",
     "dayjs": "^1.11.23",
-    "electron": "^44.7.0",
+    "electron": "^44.7.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "esbuild": "^0.25.12",
